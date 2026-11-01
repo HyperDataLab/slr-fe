@@ -3,11 +3,12 @@ import { cn } from "../../utils/cn";
 
 interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
   children: React.ReactNode;
+  containerClassName?: string;
 }
 
-const Table: React.FC<TableProps> = ({ children, className, ...props }) => {
+const Table: React.FC<TableProps> = ({ children, className, containerClassName, ...props }) => {
   return (
-    <div className="w-full overflow-x-auto">
+    <div className={cn("w-full overflow-x-auto", containerClassName)}>
       <table
         className={cn("w-full border-collapse text-left text-sm", className)}
         {...props}

@@ -645,6 +645,34 @@ select:focus {
   text-decoration-color: currentColor;
 }
 
+.project-table-scroll-area > div {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(100 115 129 / 22%) transparent;
+}
+
+.project-table-scroll-area > div::-webkit-scrollbar {
+  height: 4px;
+}
+
+.project-table-scroll-area > div::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.project-table-scroll-area > div::-webkit-scrollbar-thumb {
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  background: rgb(100 115 129 / 22%);
+  background-clip: padding-box;
+}
+
+.project-table-scroll-area > div::-webkit-scrollbar-thumb:hover {
+  background: rgb(100 115 129 / 38%);
+  background-clip: padding-box;
+}
+
+.project-table-scroll-area > div::-webkit-scrollbar-button {
+  display: none;
+}
 /* Slim, low-contrast scrollbars for dense workspaces without hiding scroll affordance. */
 .custom-scrollbar {
   scrollbar-width: thin;
