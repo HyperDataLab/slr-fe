@@ -4,6 +4,7 @@ import {
   FiMenu,
   FiX,
   FiLayers,
+  FiBookOpen,
   FiUser,
   FiLogOut,
   FiShield,
@@ -20,7 +21,13 @@ import Button from "../ui/Button";
 import { toastWarning } from "../../utils/toast";
 import { useUnreadCount } from "../../hooks/useNotifications";
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onMenuClick?: () => void;
+  isSidebarOpen?: boolean;
+  hideAccountMenu?: boolean;
+}
+
+const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen = false, hideAccountMenu = false }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -111,7 +118,7 @@ const Header: React.FC = () => {
         { name: "Features", path: "/#features", icon: FiLayers },
         { name: "About", path: "/#about", icon: FiLayers },
       ]
-    : [{ name: "Projects", path: "/projects", icon: FiLayers }];
+    : [{ name: "Projects", path: "/projects", icon: FiLayers }, { name: "Shared library", path: "/shared-repository", icon: FiBookOpen }];
 
   const handleHeaderInteraction = (
     e: React.MouseEvent | React.KeyboardEvent,
@@ -161,28 +168,29 @@ const Header: React.FC = () => {
               {/* Mobile Menu Toggle */}
               <button
                 type="button"
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                onClick={() => onMenuClick ? onMenuClick() : setIsMenuOpen(!isMenuOpen)}
                 className="-ml-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none lg:hidden"
                 aria-label="Toggle Menu"
-                aria-expanded={isMenuOpen}
+                aria-expanded={onMenuClick ? isSidebarOpen : isMenuOpen}
               >
-                {isMenuOpen ? (
+                {(onMenuClick ? isSidebarOpen : isMenuOpen) ? (
                   <FiX className="w-5 h-5" />
                 ) : (
                   <FiMenu className="w-5 h-5" />
                 )}
               </button>
 
-              <Link to="/" className="group flex min-h-11 shrink-0 items-center gap-2">
+              <Link to="/" className={`group flex min-h-11 shrink-0 items-center gap-2 ${onMenuClick ? "hidden" : ""}`}>
                 <SystemSignature className="mb-0" />
               </Link>
 
+              {onMenuClick && <span className="truncate text-sm font-semibold text-text-primary">{location.pathname.startsWith("/shared-repository") ? "Shared library" : location.pathname.startsWith("/profile") ? "My Profile" : "Projects"}</span>}
               {/* Desktop Navigation */}
-              <nav aria-label="Primary navigation" className="hidden items-center gap-1 lg:flex">
-                {(location.pathname === "/" ? navLinks : []).map((link) => {
-                  const isActive = link.path === "/projects"
-                    ? location.pathname.startsWith("/projects")
-                    : location.hash === link.path.slice(1);
+              <nav aria-label="Primary navigation" className={onMenuClick ? "hidden" : "hidden items-center gap-1 lg:flex"}>
+                {navLinks.map((link) => {
+                  const isActive = link.path.startsWith("/#")
+                    ? location.hash === link.path.slice(1)
+                    : location.pathname.startsWith(link.path);
                   const className = `relative inline-flex min-h-11 items-center px-3 text-sm font-medium normal-case tracking-normal whitespace-nowrap transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:after:transition-none ${isActive ? "text-primary after:scale-x-100" : "text-text-secondary after:scale-x-0 hover:text-text-primary hover:after:scale-x-100"}`;
                   return location.pathname === "/" && link.path.startsWith("/#") ? (
                     <a key={link.name} href={link.path.slice(1)} className={className}>{link.name}</a>
@@ -239,6 +247,21 @@ const Header: React.FC = () => {
                     </Button>
                   )}
 
+{hideAccountMenu && (
+  <>
+    <div className="mx-0.5 hidden h-7 w-px bg-border sm:block"></div>
+    <div className="flex min-w-0 items-center gap-2.5 py-1 pl-2">
+      <div className="hidden min-w-0 text-right sm:block">
+        <p className="max-w-40 truncate text-[12px] font-bold leading-tight text-text-primary">{user?.name || "User"}</p>
+        <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-text-muted">{user?.role || "User"}</p>
+      </div>
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
+        {user?.name ? getUserInitials(user.name) : "U"}
+      </div>
+    </div>
+  </>
+)}{!hideAccountMenu && (
+                  <>
                   {/* Desktop Separator */}
                   <div className="mx-0.5 hidden h-7 w-px bg-border sm:block"></div>
 
@@ -316,6 +339,8 @@ const Header: React.FC = () => {
                       </div>
                     )}
                   </div>
+                  </>
+)}
                 </>
               ) : (
                 <div className="flex items-center gap-2.5 sm:gap-3">
@@ -346,7 +371,7 @@ const Header: React.FC = () => {
         </div>
       </header>
 
-      <Drawer
+      {!onMenuClick && <Drawer
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
         side="left"
@@ -360,7 +385,7 @@ const Header: React.FC = () => {
           <p className="text-[10px] text-text-secondary text-center uppercase tracking-widest leading-loose">
             SLRS
             <br />
-            v1.0.2 • 2026
+            v1.0.2 \u2022 2026
           </p>
         }
       >
@@ -433,7 +458,7 @@ const Header: React.FC = () => {
             </Link>
           )}
         </div>
-      </Drawer>
+      </Drawer>}
     </>
   );
 };

@@ -1,73 +1,62 @@
+import { useState } from "react";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
+import ClientWorkspaceSidebar from "../components/layout/ClientWorkspaceSidebar";
 import { Outlet, useLocation } from "react-router-dom";
+import { useSelector } from "react-redux";
+import type { RootState } from "../redux/store";
 import AdminAccessGuard from "../components/auth/AdminAccessGuard";
 import SectionGuard from "../components/auth/SectionGuard";
 import SignalRConnectionManager from "../components/SignalRConnectionManager";
 
 export default function MainLayout() {
   const { pathname } = useLocation();
+  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const isScreeningWorkspace =
-    /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?screening(?:\/|$)/.test(
-      pathname,
-    );
-  const isFullTextScreeningWorkspace = /\/full-text-screening(?:\/|$)/.test(
-    pathname,
+    /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?screening(?:\/|$)/.test(pathname);
+  const isFullTextScreeningWorkspace = /\/full-text-screening(?:\/|$)/.test(pathname);
+  const isReviewProcessDashboard = /\/projects\/[^/]+\/processes\/[^/]+\/?$/.test(pathname);
+  const isDataExtractionWorkspace = /\/projects\/[^/]+\/processes\/[^/]+\/extraction(?:\/|$)/.test(pathname);
+  const isQualityAssessmentWorkspace = /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?quality-assessment(?:\/|$)/.test(pathname);
+  const isSynthesisWorkspace = /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?synthesis(?:\/|$)/.test(pathname);
+  const isPrismaReportWorkspace = /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?prisma-report(?:\/|$)/.test(pathname);
+  const isChecklistEditorWorkspace = /\/projects\/[^/]+\/checklists\/[^/]+(?:\/|$)/.test(pathname);
+  const isViewportWorkspace = isScreeningWorkspace || isFullTextScreeningWorkspace || isChecklistEditorWorkspace;
+  const showHeader = !isScreeningWorkspace && !isReviewProcessDashboard &&
+    !isDataExtractionWorkspace && !isQualityAssessmentWorkspace &&
+    !isSynthesisWorkspace && !isPrismaReportWorkspace && !isChecklistEditorWorkspace;
+  const showClientSidebar = isAuthenticated && showHeader && (
+    pathname === "/projects" || pathname.startsWith("/projects/") ||
+    pathname === "/shared-repository" || pathname.startsWith("/shared-repository/") || pathname === "/profile"
   );
-  const isReviewProcessDashboard =
-    /\/projects\/[^/]+\/processes\/[^/]+\/?$/.test(pathname);
-  const isDataExtractionWorkspace =
-    /\/projects\/[^/]+\/processes\/[^/]+\/extraction(?:\/|$)/.test(pathname);
-  const isQualityAssessmentWorkspace =
-    /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?quality-assessment(?:\/|$)/.test(
-      pathname,
-    );
-  const isSynthesisWorkspace =
-    /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?synthesis(?:\/|$)/.test(
-      pathname,
-    );
-  const isPrismaReportWorkspace =
-    /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?prisma-report(?:\/|$)/.test(
-      pathname,
-    );
-  const isChecklistEditorWorkspace =
-    /\/projects\/[^/]+\/checklists\/[^/]+(?:\/|$)/.test(pathname);
-  const isViewportWorkspace =
-    isScreeningWorkspace ||
-    isFullTextScreeningWorkspace ||
-    isChecklistEditorWorkspace;
 
   return (
-    <div
-      className={
-        isViewportWorkspace
-          ? "flex h-dvh min-h-0 flex-col overflow-hidden bg-bg-primary"
-          : "flex min-h-screen flex-col bg-bg-primary"
-      }
-    >
+    <div className={isViewportWorkspace ? "flex h-dvh min-h-0 overflow-hidden bg-bg-primary" : "flex min-h-screen bg-bg-primary"}>
       <SignalRConnectionManager />
-      {!isScreeningWorkspace &&
-        !isReviewProcessDashboard &&
-        !isDataExtractionWorkspace &&
-        !isQualityAssessmentWorkspace &&
-        !isSynthesisWorkspace &&
-        !isPrismaReportWorkspace &&
-        !isChecklistEditorWorkspace && <Header />}
-      <main
-        className={
-          isViewportWorkspace
+      {showClientSidebar && (
+        <ClientWorkspaceSidebar
+          isCollapsed={isSidebarCollapsed}
+          onToggle={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
+      <div className={`${isViewportWorkspace ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" : "flex min-w-0 flex-1 flex-col"} ${showClientSidebar ? (isSidebarCollapsed ? "lg:ml-16" : "lg:ml-[216px]") : ""}`}>
+        {showHeader && <Header onMenuClick={showClientSidebar ? () => setIsMobileSidebarOpen((open) => !open) : undefined} isSidebarOpen={isMobileSidebarOpen} hideAccountMenu={showClientSidebar} />}
+        <main
+          className={isViewportWorkspace
             ? "app-content min-h-0 flex-1 overflow-hidden overscroll-none"
-            : `app-content flex-grow ${pathname === "/" ? "home-content" : "standard-content"}`
-        }
-      >
-        <AdminAccessGuard />
-        <SectionGuard section="client">
-          {/* <InteractionGuard> */}
-          <Outlet />
-          {/* </InteractionGuard> */}
-        </SectionGuard>
-      </main>
-      {!isViewportWorkspace && !isChecklistEditorWorkspace && <Footer />}
+            : `app-content flex-grow ${pathname === "/" ? "home-content" : "standard-content"}`}
+        >
+          <AdminAccessGuard />
+          <SectionGuard section="client">
+            <Outlet />
+          </SectionGuard>
+        </main>
+        {!isViewportWorkspace && !isChecklistEditorWorkspace && <Footer />}
+      </div>
     </div>
   );
 }

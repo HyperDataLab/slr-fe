@@ -18,9 +18,15 @@ interface SidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
   className?: string;
+  brandPath?: string;
+  brandLabel?: string;
+  navigationLabel?: string;
+  showBrand?: boolean;
+  showToggle?: boolean;
+  onNavigate?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ items, footerItems, isCollapsed, onToggle, className }) => {
+const Sidebar: React.FC<SidebarProps> = ({ items, footerItems, isCollapsed, onToggle, className, brandPath = "/admin", brandLabel = "SLRS Admin overview", navigationLabel = "Admin navigation", showBrand = true, showToggle = true, onNavigate }) => {
   const location = useLocation();
   const sections = useMemo(() => {
     const result: Array<{ name: string; items: SidebarItem[] }> = [];
@@ -77,11 +83,11 @@ const Sidebar: React.FC<SidebarProps> = ({ items, footerItems, isCollapsed, onTo
     );
 
     const itemNode = item.onClick ? (
-      <button key={item.label} type="button" onClick={item.onClick} title={isCollapsed ? item.label : undefined} aria-label={item.label} className={commonClasses}>
+      <button key={item.label} type="button" onClick={() => { item.onClick?.(); onNavigate?.(); }} title={isCollapsed ? item.label : undefined} aria-label={item.label} className={commonClasses}>
         {content}
       </button>
     ) : (
-      <Link key={item.path} to={item.path} title={isCollapsed ? item.label : undefined} aria-label={item.label} aria-current={isActive ? "page" : undefined} className={commonClasses}>
+      <Link key={item.path} to={item.path} onClick={onNavigate} title={isCollapsed ? item.label : undefined} aria-label={item.label} aria-current={isActive ? "page" : undefined} className={commonClasses}>
         {content}
       </Link>
     );
@@ -91,8 +97,8 @@ const Sidebar: React.FC<SidebarProps> = ({ items, footerItems, isCollapsed, onTo
 
   return (
     <aside className={cn("relative z-30 flex shrink-0 flex-col border-r border-border bg-bg-secondary transition-[width] duration-200 ease-out motion-reduce:transition-none", isCollapsed ? "w-16" : "w-[216px]", className)}>
-      <div className="flex h-[64px] shrink-0 items-center justify-center border-b border-border px-2">
-        <Link to="/admin" className="flex min-h-10 w-full min-w-0 items-center justify-center overflow-hidden" aria-label="SLRS Admin overview">
+      {showBrand && (<div className="flex h-[64px] shrink-0 items-center justify-center border-b border-border px-2">
+        <Link to={brandPath} className="flex min-h-10 w-full min-w-0 items-center justify-center overflow-hidden" aria-label={brandLabel}>
           <img
             src={isCollapsed ? "/brand/logo-mark.png" : "/brand/logo-horizontal.png"}
             alt="SLRS"
@@ -100,20 +106,20 @@ const Sidebar: React.FC<SidebarProps> = ({ items, footerItems, isCollapsed, onTo
             draggable={false}
           />
         </Link>
-      </div>
+      </div>)}
 
-      <button
+      {showToggle && (<button
         type="button"
         onClick={onToggle}
         aria-expanded={!isCollapsed}
         aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="absolute -right-3 top-[52px] z-40 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface-white text-text-secondary shadow-sm transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none"
+        className="absolute -right-4 top-[44px] z-[120] flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface-white text-text-secondary shadow-sm transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none"
       >
-        {isCollapsed ? <FiChevronRight size={13} /> : <FiChevronLeft size={13} />}
-      </button>
+        {isCollapsed ? <FiChevronRight size={12} /> : <FiChevronLeft size={12} />}
+      </button>)}
 
-      <nav aria-label="Admin navigation" className={cn("custom-scrollbar flex-1 overflow-y-auto py-3", isCollapsed ? "space-y-0.5 px-2.5" : "space-y-0.5 px-3")}>
+      <nav aria-label={navigationLabel} className={cn("custom-scrollbar flex-1 overflow-y-auto py-3", isCollapsed ? "space-y-0.5 px-2.5" : "space-y-0.5 px-3")}>
         {sections.map((section, index) => {
           if (!section.name) {
             return section.items.map((item) => renderItem(item));
@@ -124,7 +130,7 @@ const Sidebar: React.FC<SidebarProps> = ({ items, footerItems, isCollapsed, onTo
             <div key={section.name}>
               <button
                 type="button"
-                aria-label={`${isExpanded ? "Thu gọn" : "Mở rộng"} nhóm ${section.name}`}
+                aria-label={`${isExpanded ? "Thu g\u1ECDn" : "M\u1EDF r\u1ED9ng"} nh\u00F3m ${section.name}`}
                 aria-expanded={isExpanded}
                 title={isCollapsed ? section.name : undefined}
                 onClick={() => setExpandedGroups((current) => ({ ...current, [section.name]: !current[section.name] }))}

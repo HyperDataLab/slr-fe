@@ -35,6 +35,8 @@ const ManageStudySelectionPage = lazy(() => import("../pages/manage-study-select
 const ScreeningPhaseRouter = lazy(() => import("../pages/reviewProcess/studySelection/ScreeningPhaseRouter"));
 const StuSePaperStatisticPage = lazy(() => import("../pages/manage-study-selection/StuSePaperStatisticPage"));
 const NotificationCenterPage = lazy(() => import("../pages/notifications/NotificationCenterPage"));
+const SharedRepositoryPage = lazy(() => import("../pages/sharedRepository/SharedRepositoryPage"));
+const PaperAssetDetailPage = lazy(() => import("../pages/admin/PaperAssetDetailPage"));
 
 function MainRoutes() {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -67,6 +69,8 @@ function MainRoutes() {
           <Route>
             <Route element={<ProtectedRoute />}>
               <Route path="notifications" element={<NotificationCenterPage />} />
+              <Route path="shared-repository" element={<SharedRepositoryPage />} />
+              <Route path="shared-repository/:paperId/details" element={<PaperAssetDetailPage />} />
               <Route path="projects" element={<ProjectLayout />}>
               <Route index element={<ProjectListPage />} />
 

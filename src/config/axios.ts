@@ -66,6 +66,26 @@ const refreshToken = async (): Promise<string | null> => {
   return refreshPromise;
 };
 
+/** Returns a fresh bearer token for fetch-based APIs such as authenticated SSE. */
+export const getValidAccessToken = async (): Promise<string> => {
+  const { accessToken, isAuthenticated, accessTokenExpiresAt } = store.getState().auth;
+  if (!isAuthenticated) throw new Error("Please sign in to continue.");
+
+  if (isTokenExpired(accessTokenExpiresAt)) {
+    const refreshedToken = await refreshToken();
+    if (!refreshedToken) {
+      handleGlobalLogout();
+      throw new Error("Your session expired. Please sign in again.");
+    }
+    return refreshedToken;
+  }
+
+  if (!accessToken) {
+    handleGlobalLogout();
+    throw new Error("Your session expired. Please sign in again.");
+  }
+  return accessToken;
+};
 // Add token from Redux store to request headers
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {

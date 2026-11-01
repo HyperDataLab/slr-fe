@@ -86,7 +86,7 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
 
   return (
     <>
-      <div className="hidden lg:block">
+      <div className="project-table-scroll-area hidden lg:block">
         <Table className="w-full min-w-[1280px] table-fixed">
           <colgroup>
             <col className="w-[36%]" />

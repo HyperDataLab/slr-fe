@@ -5,11 +5,14 @@ import gsap from "gsap";
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, MiniMap, Position, ReactFlow, getSmoothStepPath, useReactFlow, type Edge, type EdgeProps, type Node, type NodeProps, Handle } from "@xyflow/react";
 import ELK, { type ElkNode } from "elkjs/lib/elk-api.js";
 import elkWorkerUrl from "elkjs/lib/elk-worker.min.js?url";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { FiArrowLeft, FiBookOpen, FiCheckCircle, FiChevronLeft, FiChevronRight, FiDownload, FiExternalLink, FiFileText, FiGitBranch, FiInfo, FiRefreshCw, FiSearch } from "react-icons/fi";
 import { paperService } from "../../services/paperService";
 import { paperAiAnalysisService, type AiComponent, type LocatedAiEvidence, type PaperAiAnalysisResult } from "../../services/paperAiAnalysisService";
-import { getAdminPaperAssetInventory, getAdminRepositoryPaperAnalysis, getAdminRepositoryPaperDetails } from "../../services/adminPaperAssetService";
+import { getAdminPaperAssetInventory, getAdminRepositoryPaperAnalysis, getAdminRepositoryPaperDetails, type AdminRepositoryPaperDetails, type AdminRepositoryAnalysis } from "../../services/adminPaperAssetService";
+import api from "../../config/axios";
+import { toastError, toastSuccess } from "../../utils/toast";
+import { getErrorMessage } from "../../utils/errorUtils";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Select from "../../components/ui/Select";
@@ -913,7 +916,9 @@ function PaperArgumentOutline({
 }
 function PaperAssetDetailPage() {
   const { projectId, paperId = "" } = useParams<{ projectId?: string; paperId: string }>();
+  const location = useLocation();
   const isRepositoryRoute = !projectId;
+  const isSharedLibraryRoute = location.pathname.startsWith("/shared-repository/");
   const rootRef = useRef<HTMLDivElement>(null);
   const pdfViewerRef = useRef<import("../../components/shared/paper/PdfJsViewer/PdfJsViewer").PdfJsViewerRef>(null);
   const pdfNavigationSequence = useRef(0);
@@ -933,8 +938,9 @@ function PaperAssetDetailPage() {
   const [selectedArgumentId, setSelectedArgumentId] = useState("");
   const [argumentSearch, setArgumentSearch] = useState("");
   const [outlineSearch, setOutlineSearch] = useState("");
+  const [metadataEnrichmentBusy, setMetadataEnrichmentBusy] = useState(false);
   const deferredArgumentSearch = useDeferredValue(argumentSearch);
-  const inventoryQuery = useQuery({ queryKey: ["admin-paper-assets"], queryFn: getAdminPaperAssetInventory, staleTime: 60_000 });
+  const inventoryQuery = useQuery({ queryKey: ["admin-paper-assets"], queryFn: getAdminPaperAssetInventory, staleTime: 60_000, enabled: !isSharedLibraryRoute });
   const asset = inventoryQuery.data?.find((item) => isRepositoryRoute
     ? item.repositoryOnly && (item.workId === paperId || item.paper.id === paperId)
     : item.projectId === projectId && item.paper.id === paperId);
@@ -948,17 +954,25 @@ function PaperAssetDetailPage() {
     enabled: Boolean(projectId && paperId),
     staleTime: 30_000,
   });
-  const repositoryDetailsQuery = useQuery({
-    queryKey: ["admin-repository-paper-details", paperId],
-    queryFn: () => getAdminRepositoryPaperDetails(paperId),
+  type RepositoryDetails = AdminRepositoryPaperDetails & { assets?: { pdfUrl?: string; pdfFileName?: string; pdfSizeBytes?: number; markdownUrl?: string; markdownFileName?: string; markdownSizeBytes?: number } };
+  const repositoryDetailsQuery = useQuery<RepositoryDetails>({
+    queryKey: [isSharedLibraryRoute ? "shared-repository-paper-details" : "admin-repository-paper-details", paperId],
+    queryFn: async () => {
+      if (!isSharedLibraryRoute) return getAdminRepositoryPaperDetails(paperId);
+      const response = await api.get<{ isSuccess: boolean; data: RepositoryDetails; message?: string }>(`/repository/works/${encodeURIComponent(paperId)}/details`);
+      if (!response.data.isSuccess) throw new Error(response.data.message || "Unable to load paper details.");
+      return response.data.data;
+    },
     enabled: Boolean(isRepositoryRoute && paperId),
     staleTime: 5 * 60_000,
   });
   const analysisQuery = useQuery({
-    queryKey: ["admin-paper-ai-analysis-detail", projectId, paperId],
+    queryKey: [isSharedLibraryRoute ? "shared-paper-ai-analysis-detail" : "admin-paper-ai-analysis-detail", projectId, paperId],
     queryFn: async () => {
       if (isRepositoryRoute) {
-        const savedAnalysis = await getAdminRepositoryPaperAnalysis(paperId);
+        const savedAnalysis = isSharedLibraryRoute
+          ? (await api.get<{ isSuccess: boolean; data: AdminRepositoryAnalysis | null; message?: string }>(`/repository/works/${encodeURIComponent(paperId)}/analysis`)).data.data
+          : await getAdminRepositoryPaperAnalysis(paperId);
         return normalizeRepositoryAnalysis(savedAnalysis, paperId, asset?.paper.title || paperId);
       }
       return paperAiAnalysisService.getPaper(projectId!, paperId);
@@ -1060,10 +1074,11 @@ function PaperAssetDetailPage() {
     ? [selectedComponentQuery]
     : pdfHighlightEvidence.map(({ text, page, role }) => ({ text, page, role }))).filter((item) => item.text.trim()), [pdfHighlightEvidence, selectedComponentQuery]);
   const repositoryMetadata = repositoryDetailsQuery.data?.metadata;
+  const missingMetadataCount = countMissingMetadata(repositoryMetadata as (AdminRepositoryPaperDetails["metadata"] & { isOpenAccess?: boolean }) | undefined);
   const title = repositoryMetadata?.title || paper?.title || asset?.paper.title || ai?.title || "Untitled paper";
   const authors = formatAuthors(repositoryMetadata?.authors) || formatAuthors(paper?.authors) || asset?.paper.authors || "Author information unavailable";
-  const pdfUrl = asset?.paper.pdfUrl || paper?.pdfUrl || ai?.pdf_url;
-  const markdownUrl = asset?.paper.metadataUrl || asset?.paper.metadataFile?.url;
+  const pdfUrl = repositoryDetailsQuery.data?.assets?.pdfUrl || asset?.paper.pdfUrl || paper?.pdfUrl || ai?.pdf_url;
+  const markdownUrl = repositoryDetailsQuery.data?.assets?.markdownUrl || asset?.paper.metadataUrl || asset?.paper.metadataFile?.url;
   const requestPdfNavigation = useCallback((evidence: LocatedAiEvidence, switchToPdf: boolean, role?: string) => {
     setHasOpenedPdf(true);
     setSelectedCitation(evidence);
@@ -1092,17 +1107,39 @@ function PaperAssetDetailPage() {
     else if ((evidence?.quote || evidence?.text || pendingPdfNavigation.queryText || "").trim().length >= 18) pdfViewerRef.current.scrollToFirstHighlight();
     setPendingPdfNavigation(null);
   }, [hasOpenedPdf, pendingPdfNavigation, workspaceMode]);
-  const isBusy = inventoryQuery.isLoading || (Boolean(projectId) && detailsQuery.isLoading) || (isRepositoryRoute && repositoryDetailsQuery.isLoading) || analysisQuery.isLoading;
+  const isBusy = (!isSharedLibraryRoute && inventoryQuery.isLoading) || (Boolean(projectId) && detailsQuery.isLoading) || (isRepositoryRoute && repositoryDetailsQuery.isLoading) || analysisQuery.isLoading;
   const retryDetails = () => {
     if (isRepositoryRoute) {
-      void inventoryQuery.refetch();
+      if (!isSharedLibraryRoute) void inventoryQuery.refetch();
       void repositoryDetailsQuery.refetch();
     }
     else void detailsQuery.refetch();
   };
+  const enrichMissingMetadata = async () => {
+    setMetadataEnrichmentBusy(true);
+    try {
+      const response = await api.post<{ isSuccess: boolean; data: { updatedFields: string[] }; message?: string }>(
+        `/admin/paper-assets/repository/${encodeURIComponent(paperId)}/enrich-metadata`,
+      );
+      if (!response.data.isSuccess) throw new Error(response.data.message || "Metadata lookup failed.");
+      await repositoryDetailsQuery.refetch();
+      const updatedFields = response.data.data.updatedFields;
+      toastSuccess(
+        updatedFields.length ? "Metadata updated" : "Metadata checked",
+        updatedFields.length ? `Added: ${updatedFields.join(", ")}.` : "Crossref and OpenAlex did not return any additional metadata.",
+      );
+    } catch (error) {
+      toastError("Could not enrich metadata", getErrorMessage(error, "Please try again."));
+    } finally {
+      setMetadataEnrichmentBusy(false);
+    }
+  };
 
   if (isBusy) return <div className="flex min-h-[45vh] items-center justify-center"><LoadingSpinner size="lg" /><span className="ml-3 text-sm text-text-secondary">Loading paper details…</span></div>;
-  if ((detailsQuery.isError || (!asset && isRepositoryRoute)) && !asset) return <div className="rounded-xl border border-error/20 bg-surface-white p-6"><h1 className="text-lg font-semibold text-text-primary">Unable to load paper details</h1><p className="mt-1 text-sm text-text-secondary">{detailsQuery.error instanceof Error ? detailsQuery.error.message : "Paper not found in the repository."}</p><Button className="mt-4" variant="secondary" onClick={retryDetails}><FiRefreshCw /> Retry</Button></div>;
+  const detailError = detailsQuery.isError
+    || (isRepositoryRoute && repositoryDetailsQuery.isError)
+    || (isRepositoryRoute && !isSharedLibraryRoute && !asset);
+  if (detailError) return <div className="rounded-xl border border-error/20 bg-surface-white p-6"><h1 className="text-lg font-semibold text-text-primary">Unable to load paper details</h1><p className="mt-1 text-sm text-text-secondary">{repositoryDetailsQuery.error instanceof Error ? repositoryDetailsQuery.error.message : detailsQuery.error instanceof Error ? detailsQuery.error.message : "Paper not found in the repository."}</p><Button className="mt-4" variant="secondary" onClick={retryDetails}><FiRefreshCw /> Retry</Button></div>;
 
   const tabOptions: { id: AnalysisTab; label: string; count?: number }[] = [
     { id: "aif", label: "AIF", count: result ? result.toulmin_arguments.length || result.aif_graph.nodes.filter((node) => {
@@ -1174,17 +1211,18 @@ function PaperAssetDetailPage() {
   const outline = result ? <PaperArgumentOutline argumentsList={result.toulmin_arguments} selectedArgumentId={currentArgumentId} search={outlineSearch} onSearchChange={setOutlineSearch} onSelectArgument={switchArgument} onHighlightArgument={highlightArgumentInPdf} onChooseEvidence={chooseOutlineEvidence} onOpenGraph={openGraphFromOutline} /> : <p className="p-4 text-xs text-text-muted">No argument data is available to build the outline.</p>;
   const inspector = selectedNode ? <EvidenceInspector node={selectedNode} onShowEvidence={(evidence) => requestPdfNavigation(evidence, true, selectedNode.data.role)} onOpenGraph={() => { setWorkspaceMode("graph"); setInspectorOpen(false); }} /> : null;
 
-  return <div ref={rootRef} className="mx-auto max-w-[1600px] space-y-5 pb-6">
-    <nav className="flex items-center gap-2 text-sm text-text-secondary"><Link to="/admin/paper-files" className="inline-flex items-center gap-2 hover:text-primary"><FiArrowLeft aria-hidden="true" /> Paper management</Link><span aria-hidden="true">/</span><span className="truncate text-text-primary">Paper details</span></nav>
+  return <div ref={rootRef} className="mx-auto max-w-[1600px] space-y-5 px-4 pb-6 pt-4 sm:px-6 sm:pt-5 lg:px-8">
+    <nav className="flex items-center gap-2 text-sm text-text-secondary"><Link to={isSharedLibraryRoute ? "/shared-repository" : "/admin/paper-files"} className="inline-flex items-center gap-2 hover:text-primary"><FiArrowLeft aria-hidden="true" /> {isSharedLibraryRoute ? "Shared library" : "Paper management"}</Link><span aria-hidden="true">/</span><span className="truncate text-text-primary">Paper details</span></nav>
     <header className="rounded-2xl border border-border bg-surface-white p-5 shadow-sm sm:p-7">
       <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-primary-light px-2.5 py-1 text-[11px] font-semibold text-primary">{asset?.repositoryOnly ? "Shared repository" : asset?.projectTitle || "Project"}</span><AnalysisStatus status={ai?.status} /></div>
+          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-primary-light px-2.5 py-1 text-[11px] font-semibold text-primary">{isSharedLibraryRoute || asset?.repositoryOnly ? "Shared repository" : asset?.projectTitle || "Project"}</span><AnalysisStatus status={ai?.status} /></div>
           <h1 className="mt-3 max-w-5xl text-xl font-semibold leading-snug tracking-tight text-text-primary sm:text-2xl">{title}</h1>
           <p className="mt-2 text-sm leading-6 text-text-secondary">{authors}</p>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-text-muted">{(repositoryMetadata?.doi || paper?.doi || asset?.paper.doi) && <span>DOI: {repositoryMetadata?.doi || paper?.doi || asset?.paper.doi}</span>}{(repositoryMetadata?.publicationYear || paper?.publicationYear || paper?.year || asset?.paper.publicationYear) && <span>Publication year: {repositoryMetadata?.publicationYear || paper?.publicationYear || paper?.year || asset?.paper.publicationYear}</span>}{(repositoryMetadata?.journal || repositoryMetadata?.venue || paper?.journal || paper?.publisher || asset?.paper.journal) && <span>{repositoryMetadata?.journal || repositoryMetadata?.venue || paper?.journal || paper?.publisher || asset?.paper.journal}</span>}</div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          {isRepositoryRoute && !isSharedLibraryRoute && missingMetadataCount > 0 && <Button variant="secondary" disabled={metadataEnrichmentBusy} onClick={() => void enrichMissingMetadata()}><FiSearch />{metadataEnrichmentBusy ? "Searching metadata…" : `Find missing metadata (${missingMetadataCount})`}</Button>}
           {pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-white px-3.5 text-sm font-semibold text-text-primary hover:bg-bg-secondary"><FiExternalLink /> Open PDF</a>}
           {markdownUrl && <a href={markdownUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-white px-3.5 text-sm font-semibold text-text-primary hover:bg-bg-secondary"><FiDownload /> Markdown full text</a>}
         </div>
@@ -1198,7 +1236,7 @@ function PaperAssetDetailPage() {
         <MetadataField label="OpenAlex ID" value={repositoryMetadata?.openAlexId} />
         <MetadataField label="External identifiers" value={Object.entries({ ...(repositoryMetadata?.externalIdentifiers || {}), ...(repositoryDetailsQuery.data?.identifiers.external || {}) }).map(([name, id]) => `${name}: ${id}`).join(" · ")} />
         <MetadataField label="Conference" value={[paper?.conferenceName, paper?.conferenceLocation, paper?.conferenceCountry].filter(Boolean).join(" · ")} />
-        <MetadataField label="PDF filename" value={paper?.pdfFileName || asset?.paper.pdfFileName} /><MetadataField label="PDF size" value={paper?.pdf?.sizeBytes ? formatBytes(paper.pdf.sizeBytes) : undefined} />
+        <MetadataField label="PDF filename" value={repositoryDetailsQuery.data?.assets?.pdfFileName || paper?.pdfFileName || asset?.paper.pdfFileName} /><MetadataField label="PDF size" value={repositoryDetailsQuery.data?.assets?.pdfSizeBytes ? formatBytes(repositoryDetailsQuery.data.assets.pdfSizeBytes) : paper?.pdf?.sizeBytes ? formatBytes(paper.pdf.sizeBytes) : undefined} />
         <MetadataField label="Full-text extraction" value={paper?.pdf?.fullText?.status || asset?.paper.pdfFullTextStatus} /><MetadataField label="Full-text sections" value={paper?.pdf?.fullText?.sectionCount} />
         <MetadataField label="References" value={paper?.pdf?.fullText?.referenceCount} /><MetadataField label="Import source" value={paper?.source} />
         <MetadataField label="Metadata sources" value={repositoryDetailsQuery.data?.metadataSources.map((source) => source.provider).filter(Boolean).join(", ") || repositoryDetailsQuery.data?.metadataProvenance.source || paper?.source} />
@@ -1302,6 +1340,30 @@ function formatAuthors(value: unknown): string {
     const affiliation = asText(item.affiliation);
     return [name, affiliation].filter(Boolean).join(" · ");
   }).filter(Boolean).join(", ");
+}
+
+function countMissingMetadata(metadata?: AdminRepositoryPaperDetails["metadata"] & { isOpenAccess?: boolean }): number {
+  if (!metadata) return 0;
+  const usableText = (value?: string) => Boolean(value?.trim());
+  const venue = metadata.journal?.trim() || metadata.venue?.trim() || "";
+  const placeholderVenue = /^(open access(?:\s*\(web\))?|unknown|n\/a|not available|none)$/i.test(venue);
+  return [
+    !usableText(metadata.abstract),
+    !metadata.authors?.length,
+    metadata.publicationYear === undefined,
+    !usableText(metadata.publicationDate),
+    !venue || placeholderVenue,
+    !usableText(metadata.journalIssn),
+    !usableText(metadata.volume),
+    !usableText(metadata.issue),
+    !usableText(metadata.pages),
+    !usableText(metadata.publisher),
+    !usableText(metadata.language),
+    !usableText(metadata.publicationType),
+    !usableText(metadata.openAlexId),
+    !metadata.keywords?.length,
+    metadata.isOpenAccess === undefined,
+  ].filter(Boolean).length;
 }
 
 function formatBytes(bytes: number): string {
