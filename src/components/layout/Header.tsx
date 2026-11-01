@@ -4,6 +4,7 @@ import {
   FiMenu,
   FiX,
   FiLayers,
+  FiBookOpen,
   FiUser,
   FiLogOut,
   FiShield,
@@ -111,7 +112,7 @@ const Header: React.FC = () => {
         { name: "Features", path: "/#features", icon: FiLayers },
         { name: "About", path: "/#about", icon: FiLayers },
       ]
-    : [{ name: "Projects", path: "/projects", icon: FiLayers }];
+    : [{ name: "Projects", path: "/projects", icon: FiLayers }, { name: "Shared library", path: "/shared-repository", icon: FiBookOpen }];
 
   const handleHeaderInteraction = (
     e: React.MouseEvent | React.KeyboardEvent,
@@ -179,10 +180,10 @@ const Header: React.FC = () => {
 
               {/* Desktop Navigation */}
               <nav aria-label="Primary navigation" className="hidden items-center gap-1 lg:flex">
-                {(location.pathname === "/" ? navLinks : []).map((link) => {
-                  const isActive = link.path === "/projects"
-                    ? location.pathname.startsWith("/projects")
-                    : location.hash === link.path.slice(1);
+                {navLinks.map((link) => {
+                  const isActive = link.path.startsWith("/#")
+                    ? location.hash === link.path.slice(1)
+                    : location.pathname.startsWith(link.path);
                   const className = `relative inline-flex min-h-11 items-center px-3 text-sm font-medium normal-case tracking-normal whitespace-nowrap transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:after:transition-none ${isActive ? "text-primary after:scale-x-100" : "text-text-secondary after:scale-x-0 hover:text-text-primary hover:after:scale-x-100"}`;
                   return location.pathname === "/" && link.path.startsWith("/#") ? (
                     <a key={link.name} href={link.path.slice(1)} className={className}>{link.name}</a>
