@@ -38,6 +38,7 @@ import type {
   GetReferencesResponse,
   GetCitationsResponse,
   GetCitationGraphResponse,
+  GetPaperAbstractResponse,
   GetCitationGraphQuery,
   GetTopCitedPapersQuery,
   GetTopCitedPapersResponse,
@@ -400,6 +401,15 @@ export const studySelectionService = {
     params?: GetCitationGraphQuery,
   ): Promise<GetCitationGraphResponse> {
     const response = await api.get<GetCitationGraphResponse>(`/papers/${id}/graph`, { params });
+    return response.data;
+  },
+
+  // Get an external paper abstract from OpenAlex, with Crossref fallback.
+  async getPaperAbstract(id: string, doi?: string | null): Promise<GetPaperAbstractResponse> {
+    const response = await api.get<GetPaperAbstractResponse>(
+      `/papers/${encodeURIComponent(id)}/abstract`,
+      { params: doi ? { doi } : undefined, timeout: 6000 },
+    );
     return response.data;
   },
 

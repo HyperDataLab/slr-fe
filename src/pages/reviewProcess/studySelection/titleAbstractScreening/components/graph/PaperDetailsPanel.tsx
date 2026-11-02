@@ -8,15 +8,17 @@ export interface PaperDetails {
   year?: number;
   doi?: string;
   abstract?: string;
+  abstractSource?: "OPENALEX" | "CROSSREF";
   citationCount?: number;
   referenceCount?: number;
 }
 
 interface PaperDetailsPanelProps {
   paper: PaperDetails;
+  abstractLoading?: boolean;
 }
 
-const PaperDetailsPanel: React.FC<PaperDetailsPanelProps> = ({ paper }) => {
+const PaperDetailsPanel: React.FC<PaperDetailsPanelProps> = ({ paper, abstractLoading = false }) => {
   const authorList = Array.isArray(paper.authors)
     ? paper.authors
         .map((author: unknown) => {
@@ -101,8 +103,15 @@ const PaperDetailsPanel: React.FC<PaperDetailsPanelProps> = ({ paper }) => {
               Abstract
             </h3>
           </div>
-          <p className="text-xs leading-relaxed text-text-secondary line-clamp-[8] text-justify font-normal">
-            {paper.abstract || "No abstract available for this paper."}
+          {paper.abstractSource && (
+            <p className="text-[10px] font-medium text-text-secondary">
+              Source: {paper.abstractSource === "OPENALEX" ? "OpenAlex" : "Crossref"}
+            </p>
+          )}
+          <p className="text-xs leading-relaxed text-text-secondary line-clamp-[8] text-justify font-normal" aria-live="polite">
+            {paper.abstract || (abstractLoading
+              ? "Looking for an abstract in OpenAlex and Crossref…"
+              : "No abstract available for this paper.")}
           </p>
         </div>
       </div>

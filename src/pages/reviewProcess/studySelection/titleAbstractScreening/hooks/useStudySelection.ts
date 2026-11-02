@@ -104,7 +104,7 @@ export function useStudySelection(
 
   useEffect(() => saveWorkspaceFilters(filterKey, filters), [filterKey, filters]);
 
-  const [graphDepth, setGraphDepth] = useState(1);
+  const [graphDepth, setGraphDepth] = useState(2);
   const [minConfidence, setMinConfidence] = useState(0.1);
 
   // Debounce search input for server-side API calls

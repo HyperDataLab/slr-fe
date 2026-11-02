@@ -89,6 +89,7 @@ export const QUERY_KEYS = {
     citations: (id: string) => ["papers", id, "citations"] as const,
     graph: (id: string, depth: number, minConfidence: number) =>
       ["papers", id, "graph", { depth, minConfidence }] as const,
+    abstract: (id: string, doi?: string | null) => ["papers", id, "abstract", doi ?? ""] as const,
     suggestions: (id: string, params?: Record<string, unknown>) =>
       ["papers", id, "suggestions", params ?? {}] as const,
     topCited: (params?: Record<string, unknown>) => ["papers", "top-cited", params ?? {}] as const,

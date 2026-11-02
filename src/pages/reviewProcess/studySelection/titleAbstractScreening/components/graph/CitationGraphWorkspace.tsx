@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { FiInfo, FiRefreshCw } from "react-icons/fi";
 import type { CitationGraphDto } from "../../../../../../types/studySelection";
+import { useExternalPaperAbstract } from "../../../../../../hooks/usePaperDiscovery";
 import { usePaperDetails } from "../../../../../../hooks/usePaperDetails";
 import CitationGraphCanvas from "./CitationGraphCanvas";
 import PaperDetailsPanel from "./PaperDetailsPanel";
@@ -22,6 +23,10 @@ const CitationGraphWorkspace: React.FC<CitationGraphWorkspaceProps> = ({
   const selectedNodeIsExternal = selectedPaperId?.startsWith("openalex:") ?? false;
   const { data: paperData, isLoading: isLoadingDetails } = usePaperDetails(
     selectedPaperId && !selectedNodeIsExternal ? selectedPaperId : undefined,
+  );
+  const { data: externalAbstract, isLoading: isLoadingExternalAbstract } = useExternalPaperAbstract(
+    selectedNodeIsExternal ? selectedPaperId ?? undefined : undefined,
+    selectedNode?.doi,
   );
 
   const paperDetails = useMemo(() => {
@@ -47,8 +52,10 @@ const CitationGraphWorkspace: React.FC<CitationGraphWorkspaceProps> = ({
       year: selectedNode.year ?? undefined,
       doi: selectedNode.doi ?? undefined,
       citationCount: selectedNode.citationCount,
+      abstract: externalAbstract?.abstract ?? undefined,
+      abstractSource: externalAbstract?.source ?? undefined,
     };
-  }, [paperData, selectedNode]);
+  }, [paperData, selectedNode, externalAbstract]);
 
   return (
     <div className={`relative ${className ?? "h-[min(72vh,720px)] min-h-[520px]"} min-w-0 overflow-hidden rounded-xl bg-bg-secondary/45`}>
@@ -69,7 +76,10 @@ const CitationGraphWorkspace: React.FC<CitationGraphWorkspaceProps> = ({
               <p className="text-sm font-medium">Fetching details...</p>
             </div>
           ) : paperDetails ? (
-            <PaperDetailsPanel paper={paperDetails} />
+            <PaperDetailsPanel
+              paper={paperDetails}
+              abstractLoading={selectedNodeIsExternal && isLoadingExternalAbstract}
+            />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-text-secondary">
               <FiInfo className="mb-3 h-8 w-8 opacity-40" aria-hidden="true" />

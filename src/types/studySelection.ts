@@ -486,11 +486,25 @@ export interface CitationEdgeDto {
   sourcePaperId: string; // Guid
   targetPaperId: string; // Guid
   confidenceScore: number;
+  relationType?: "REFERENCE" | "CITATION";
+}
+
+export interface CitationGraphNodeDto extends PaperNodeDto {
+  /** Minimum number of citation hops from the root paper. */
+  depth?: number;
+  /** Number of other first-level papers connected to this node. */
+  commonNeighborCount?: number;
 }
 
 export interface CitationGraphDto {
-  nodes: PaperNodeDto[];
+  nodes: CitationGraphNodeDto[];
   edges: CitationEdgeDto[];
+  intersections?: Array<{ paperId: string; commonNeighborIds: string[] }>;
+}
+
+export interface PaperAbstractDto {
+  abstract: string | null;
+  source: "OPENALEX" | "CROSSREF" | null;
 }
 
 export interface GetCitationGraphQuery {
@@ -512,6 +526,7 @@ export type GetCitationsResponse = ApiResponse<PaperNodeDto[]>;
 export type GetCitationCountResponse = ApiResponse<number>;
 export type GetReferenceCountResponse = ApiResponse<number>;
 export type GetCitationGraphResponse = ApiResponse<CitationGraphDto>;
+export type GetPaperAbstractResponse = ApiResponse<PaperAbstractDto>;
 export type GetTopCitedPapersResponse = ApiResponse<PaperNodeDto[]>;
 export type GetSuggestedPapersResponse = ApiResponse<PaperNodeDto[]>;
 

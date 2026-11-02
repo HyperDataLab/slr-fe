@@ -1,7 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
 import { studySelectionService } from "../services/studySelectionService";
 import { QUERY_KEYS } from "../constants/queryKeys";
-import type { PaperNodeDto, CitationGraphDto, GetCitationGraphQuery } from "../types/studySelection";
+import type { PaperNodeDto, CitationGraphDto, GetCitationGraphQuery, PaperAbstractDto } from "../types/studySelection";
+
+export const useExternalPaperAbstract = (
+  paperId: string | undefined,
+  doi?: string | null,
+) => {
+  return useQuery<PaperAbstractDto>({
+    queryKey: QUERY_KEYS.papers.abstract(paperId ?? "", doi),
+    queryFn: async () => {
+      const response = await studySelectionService.getPaperAbstract(paperId!, doi);
+      if (!response.isSuccess) {
+        throw new Error(response.message || "Failed to fetch paper abstract");
+      }
+      return response.data;
+    },
+    enabled: !!paperId,
+    staleTime: (query) => query.state.data?.abstract ? 24 * 60 * 60 * 1000 : 60 * 1000,
+    retry: 0,
+  });
+};
 
 /**
  * Hook to fetch references for a paper.
@@ -44,10 +63,10 @@ export const usePaperCitations = (paperId: string | undefined) => {
  */
 export const usePaperGraph = (
   paperId: string | undefined,
-  query: GetCitationGraphQuery = { depth: 1, minConfidence: 0.1 }
+  query: GetCitationGraphQuery = { depth: 2, minConfidence: 0.1 }
 ) => {
   return useQuery<CitationGraphDto>({
-    queryKey: QUERY_KEYS.papers.graph(paperId ?? "", query.depth ?? 1, query.minConfidence ?? 0.1),
+    queryKey: QUERY_KEYS.papers.graph(paperId ?? "", query.depth ?? 2, query.minConfidence ?? 0.1),
     queryFn: async () => {
       const response = await studySelectionService.getCitationGraph(paperId!, query);
       if (!response.isSuccess) {

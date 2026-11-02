@@ -49,7 +49,7 @@ export default function PaperDetailsPage() {
   const [activeTab, setActiveTab] = useState<string>("abstract");
   const tabPanelRef = useRef<HTMLDivElement>(null);
   const hasRenderedTabPanel = useRef(false);
-  const [graphDepth, setGraphDepth] = useState(1);
+  const [graphDepth, setGraphDepth] = useState(2);
   const [minConfidence, setMinConfidence] = useState(0.1);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
