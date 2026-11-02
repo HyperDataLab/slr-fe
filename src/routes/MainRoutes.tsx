@@ -36,6 +36,7 @@ const ScreeningPhaseRouter = lazy(() => import("../pages/reviewProcess/studySele
 const StuSePaperStatisticPage = lazy(() => import("../pages/manage-study-selection/StuSePaperStatisticPage"));
 const NotificationCenterPage = lazy(() => import("../pages/notifications/NotificationCenterPage"));
 const SharedRepositoryPage = lazy(() => import("../pages/sharedRepository/SharedRepositoryPage"));
+const MyIssueReportsPage = lazy(() => import("../pages/issueReports/MyIssueReportsPage"));
 const PaperAssetDetailPage = lazy(() => import("../pages/admin/PaperAssetDetailPage"));
 
 function MainRoutes() {
@@ -71,6 +72,7 @@ function MainRoutes() {
               <Route path="notifications" element={<NotificationCenterPage />} />
               <Route path="shared-repository" element={<SharedRepositoryPage />} />
               <Route path="shared-repository/:paperId/details" element={<PaperAssetDetailPage />} />
+              <Route path="issue-reports" element={<MyIssueReportsPage />} />
               <Route path="projects" element={<ProjectLayout />}>
               <Route index element={<ProjectListPage />} />
 

@@ -14,6 +14,7 @@ import AgentManagement from "../pages/admin/AgentManagement";
 import QualityCriteriaTemplates from "../pages/admin/QualityCriteriaTemplates";
 import RepositoryApiClientsPage from "../pages/admin/RepositoryApiClientsPage";
 import PaperAssetsPage from "../pages/admin/PaperAssetsPage";
+import IssueReportsPage from "../pages/admin/IssueReportsPage";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 const NotificationCenterPage = lazy(() => import("../pages/notifications/NotificationCenterPage"));
@@ -39,6 +40,7 @@ function AdminRoutes() {
           <Route path="agents" element={<AgentManagement />} />
           <Route path="repository-api" element={<RepositoryApiClientsPage />} />
           <Route path="paper-files" element={<PaperAssetsPage />} />
+          <Route path="issue-reports" element={<IssueReportsPage />} />
           <Route
             path="paper-files/repository/:paperId"
             element={(
