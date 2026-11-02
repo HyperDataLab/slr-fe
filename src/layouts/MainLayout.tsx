@@ -24,10 +24,12 @@ export default function MainLayout() {
   const isPrismaReportWorkspace = /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?prisma-report(?:\/|$)/.test(pathname);
   const isChecklistEditorWorkspace = /\/projects\/[^/]+\/checklists\/[^/]+(?:\/|$)/.test(pathname);
   const isViewportWorkspace = isScreeningWorkspace || isFullTextScreeningWorkspace || isChecklistEditorWorkspace;
-  const showHeader = !isScreeningWorkspace && !isReviewProcessDashboard &&
+  const showHeader = !isScreeningWorkspace && !isFullTextScreeningWorkspace && !isReviewProcessDashboard &&
     !isDataExtractionWorkspace && !isQualityAssessmentWorkspace &&
     !isSynthesisWorkspace && !isPrismaReportWorkspace && !isChecklistEditorWorkspace;
-  const showClientSidebar = isAuthenticated && showHeader && (
+  const showClientSidebar = isAuthenticated && (
+    showHeader || isReviewProcessDashboard || isScreeningWorkspace || isFullTextScreeningWorkspace
+  ) && (
     pathname === "/projects" || pathname.startsWith("/projects/") ||
     pathname === "/shared-repository" || pathname.startsWith("/shared-repository/") || pathname === "/profile" || pathname === "/issue-reports"
   );

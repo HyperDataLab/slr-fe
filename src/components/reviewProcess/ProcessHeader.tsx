@@ -1,11 +1,10 @@
-import { FiArrowLeft, FiPlay, FiCheck, FiPackage } from "react-icons/fi";
+import { FiPlay, FiCheck } from "react-icons/fi";
 import Button from "../ui/Button";
 import { formatDate } from "../../utils/dateFormat";
 import type { ReviewProcess } from "../../types/reviewProcess";
 
 interface ProcessHeaderProps {
   process: ReviewProcess;
-  onBack: () => void;
   onStartProcess: () => void;
   onCompleteProcess: () => void;
   startLoading: boolean;
@@ -17,7 +16,6 @@ interface ProcessHeaderProps {
 
 export default function ProcessHeader({
   process,
-  onBack,
   onStartProcess,
   onCompleteProcess,
   startLoading,
@@ -31,22 +29,9 @@ export default function ProcessHeader({
     : process.statusText;
 
   return (
-    <header className="border-b border-border bg-surface-white">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:gap-6 lg:px-8">
+    <header className="sticky top-0 z-(--z-index-header) border-b border-border bg-bg-primary">
+      <div className="flex w-full flex-col gap-4 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:gap-6 lg:px-6">
         <div className="flex min-w-0 items-center gap-3 lg:flex-1">
-          <button
-            onClick={onBack}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
-            title="Back to project"
-            aria-label="Back to project"
-          >
-            <FiArrowLeft className="h-5 w-5" aria-hidden="true" />
-          </button>
-
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
-            <FiPackage className="h-5 w-5" aria-hidden="true" />
-          </div>
-
           <div className="min-w-0 max-w-3xl">
             <h1 className="review-process-header-title process-header-title truncate whitespace-nowrap text-base font-semibold leading-5 text-text-primary sm:text-lg">
               {process.name || "Systematic Review Process"}

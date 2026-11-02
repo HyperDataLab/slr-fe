@@ -1,4 +1,5 @@
 export type PhaseStatusType = "NotStarted" | "InProgress" | "Completed" | "Locked";
+export type PhaseDisplayStatus = PhaseStatusType | "Reopened" | "Cancelled";
 
 export interface PhaseStatItem {
   label: string;
@@ -11,6 +12,7 @@ export interface WorkflowPhase {
   name: string;
   key: string;
   status: PhaseStatusType;
+  displayStatus?: PhaseDisplayStatus;
   stats: PhaseStatItem[];
   subprocessId?: string;
   /** Hint text shown for locked phases (e.g. "Complete Identification first") */

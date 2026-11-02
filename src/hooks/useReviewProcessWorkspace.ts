@@ -27,6 +27,7 @@ import type {
 import type {
   WorkflowPhase,
   PhaseStatusType,
+  PhaseDisplayStatus,
   PhaseStatItem,
   ProcessPaperStats,
 } from "../components/reviewProcess/workflow/types";
@@ -170,6 +171,20 @@ function getSubprocessStatus(process: ReviewProcess, phaseKey: string): PhaseSta
   }
   // Other phases don't have dedicated subprocess objects in the API yet
   return null;
+}
+
+function getRawSubprocessStatus(process: ReviewProcess, phaseKey: string): string | number | undefined {
+  if (phaseKey === "screening") return process.studySelectionProcess?.statusText;
+  if (phaseKey === "quality") return process.qualityAssessmentProcess?.statusText;
+  if (phaseKey === "extraction") return process.dataExtractionProcess?.statusText;
+  if (phaseKey === "synthesis") return process.synthesisProcess?.statusText;
+  return undefined;
+}
+
+function getDisplayStatus(rawStatus: string | number | undefined, derivedStatus: PhaseStatusType): PhaseDisplayStatus {
+  if (rawStatus === "Reopened") return "Reopened";
+  if (rawStatus === "Cancelled") return "Cancelled";
+  return derivedStatus;
 }
 
 function isSubprocessClosed(
@@ -810,7 +825,9 @@ export const useReviewProcessWorkspace = ({
       // Skip identification if it's still in the list for some reason
       if (def.key === "identification") return null;
 
+      // Workflow status comes from subprocess state/currentPhase; summary metrics never mark a phase complete.
       const status = derivePhaseStatus(process, def.id, def.key, previousCompleted);
+      const displayStatus = getDisplayStatus(getRawSubprocessStatus(process, def.key), status);
       const stats = buildPhaseStats(def.key, phaseStats);
 
       // Determine subprocess id
@@ -824,6 +841,7 @@ export const useReviewProcessWorkspace = ({
         name: def.name,
         key: def.key,
         status,
+        displayStatus,
         stats,
         subprocessId,
         lockReason: status === "Locked" ? getLockReason(def.id, def.key) : undefined,

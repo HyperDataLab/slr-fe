@@ -12,6 +12,7 @@ import { SelectionProcessStatus } from "../../types/studySelection";
 import SLRPhaseWorkspace from "../../components/reviewProcess/workflow/SLRPhaseWorkspace";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import QueryErrorState from "../../components/ui/QueryErrorState";
+import { FiArrowLeft } from "react-icons/fi";
 
 export default function ReviewProcessWorkspace() {
   const { projectId, processId } = useParams<{
@@ -86,7 +87,6 @@ export default function ReviewProcessWorkspace() {
       {/* Top Header */}
       <ProcessHeader
         process={process}
-        onBack={handleBack}
         onStartProcess={handleStartProcess}
         onCompleteProcess={handleCompleteProcess}
         startLoading={startLoading}
@@ -100,7 +100,15 @@ export default function ReviewProcessWorkspace() {
       />
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8 print:px-4">
+      <div className="w-full px-4 py-5 sm:px-5 sm:py-6 lg:px-6 print:px-4">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="mb-2 inline-flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm text-text-secondary transition-colors hover:bg-bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
+        >
+          <FiArrowLeft aria-hidden="true" className="h-4 w-4" />
+          Back to project
+        </button>
         <SLRPhaseWorkspace projectId={projectId || ""} processId={processId || ""} process={process}>
           <WorkflowTimeline
             phases={workflowPhases}
