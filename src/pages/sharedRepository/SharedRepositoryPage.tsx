@@ -252,9 +252,9 @@ function SharedRepositoryPage() {
                               </div>
                             )}
                           </TableCell>
-                          <TableCell className="px-4 py-2.5 text-sm text-text-secondary">{work.metadata?.publicationYear || "â€”"}</TableCell>
+                          <TableCell className="px-4 py-2.5 text-sm text-text-secondary">{work.metadata?.publicationYear || "—"}</TableCell>
                           <TableCell className="px-4 py-2.5">
-                            {work.doi ? <span className="block truncate text-xs text-text-secondary" title={work.doi}>{work.doi}</span> : <span className="text-xs text-text-muted">â€”</span>}
+                            {work.doi ? <span className="block truncate text-xs text-text-secondary" title={work.doi}>{work.doi}</span> : <span className="text-xs text-text-muted">—</span>}
                           </TableCell>
                           <TableCell className="px-4 py-2.5">
                             <span className={`inline-flex max-w-full truncate rounded-md border px-2 py-1 text-[11px] font-medium ${classified ? "border-success/20 bg-success/10 text-success" : "border-warning/20 bg-warning/10 text-warning"}`} title={taxonomyTitle || undefined}>
@@ -265,7 +265,7 @@ function SharedRepositoryPage() {
                             <div className="flex items-center gap-1">
                               {work.availability.currentPdfArtifactId && <Button variant="secondary" size="sm" className="min-h-8 gap-1 px-2 text-xs" onClick={() => void download(work, work.availability.currentPdfArtifactId)}><FiDownload size={13} /> PDF</Button>}
                               {work.availability.currentFullTextArtifactId && <Button variant="secondary" size="sm" className="min-h-8 gap-1 px-2 text-xs" onClick={() => void download(work, work.availability.currentFullTextArtifactId)}><FiDownload size={13} /> MD</Button>}
-                              {!work.availability.currentPdfArtifactId && !work.availability.currentFullTextArtifactId && <span className="text-xs text-text-muted">â€”</span>}
+                              {!work.availability.currentPdfArtifactId && !work.availability.currentFullTextArtifactId && <span className="text-xs text-text-muted">—</span>}
                             </div>
                           </TableCell>
                           {isGlobalAdmin && (<TableCell className="px-5 py-2.5 text-right">
