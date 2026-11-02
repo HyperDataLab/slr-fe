@@ -29,7 +29,7 @@ export default function MainLayout() {
     !isSynthesisWorkspace && !isPrismaReportWorkspace && !isChecklistEditorWorkspace;
   const showClientSidebar = isAuthenticated && showHeader && (
     pathname === "/projects" || pathname.startsWith("/projects/") ||
-    pathname === "/shared-repository" || pathname.startsWith("/shared-repository/") || pathname === "/profile"
+    pathname === "/shared-repository" || pathname.startsWith("/shared-repository/") || pathname === "/profile" || pathname === "/issue-reports"
   );
 
   return (

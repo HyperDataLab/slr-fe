@@ -17,6 +17,7 @@ import {
   FiBell,
   FiKey,
   FiArchive,
+  FiAlertCircle,
   FiChevronDown,
 } from "react-icons/fi";
 import { SiTask } from "react-icons/si";
@@ -61,6 +62,7 @@ const AdminDashboard: React.FC = () => {
     { icon: FiCpu, label: "AI Agents", path: "/admin/agents", group: "Management" },
     { icon: FiKey, label: "Repository API", path: "/admin/repository-api", group: "Management" },
     { icon: FiArchive, label: "Paper Files", path: "/admin/paper-files", group: "Management" },
+    { icon: FiAlertCircle, label: "Issue Reports", path: "/admin/issue-reports", group: "Management" },
     {
       icon: MdChecklist,
       label: "Checklist Templates",

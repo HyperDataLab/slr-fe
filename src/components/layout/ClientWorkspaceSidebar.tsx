@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import { FiBookOpen, FiLayers, FiLogOut, FiUser } from "react-icons/fi";
+import { FiAlertCircle, FiBookOpen, FiLayers, FiLogOut, FiUser } from "react-icons/fi";
 import Sidebar, { type SidebarItem } from "../ui/Sidebar";
 import Drawer from "../ui/Drawer";
 import SystemSignature from "../logo/SystemSignature";
@@ -18,6 +18,7 @@ interface ClientWorkspaceSidebarProps {
 const items: SidebarItem[] = [
   { icon: FiLayers, label: "Projects", path: "/projects" },
   { icon: FiBookOpen, label: "Shared library", path: "/shared-repository" },
+  { icon: FiAlertCircle, label: "Report a problem", path: "/issue-reports" },
 ];
 
 const ClientWorkspaceSidebar: React.FC<ClientWorkspaceSidebarProps> = ({
