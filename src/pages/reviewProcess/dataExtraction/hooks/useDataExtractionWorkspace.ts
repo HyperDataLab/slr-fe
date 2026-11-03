@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../../redux/store";
@@ -212,6 +212,7 @@ export function useDataExtractionWorkspace(): UseDataExtractionWorkspaceReturn {
   const { projectId, studyId } = useParams<{ projectId: string; studyId?: string }>();
 
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const currentUserId = useSelector((state: RootState) => state.auth.user?.id ?? null);
   const currentUserName = useSelector((state: RootState) => state.auth.user?.username ?? state.auth.user?.name ?? "You");
@@ -749,8 +750,21 @@ export function useDataExtractionWorkspace(): UseDataExtractionWorkspaceReturn {
   }, [projectId]);
   const updateGridCell = useCallback(async (payload: { paperId: string; fieldId: string; columnId?: string; row?: number; value: unknown; expectedVersion: number }) => { await gridMutation.mutateAsync(payload); }, [gridMutation]);
   const handleBack = useCallback(() => {
-    navigate(projectId ? `/projects/${projectId}` : "/projects");
-  }, [navigate, projectId]);
+    const returnTo = (location.state as { returnTo?: unknown } | null)?.returnTo;
+    const processPathPrefix = projectId ? `/projects/${projectId}/processes/` : "";
+    if (typeof returnTo === "string" && processPathPrefix && returnTo.startsWith(processPathPrefix)) {
+      navigate(returnTo);
+      return;
+    }
+
+    const historyIndex = window.history.state?.idx;
+    if (typeof historyIndex === "number" && historyIndex > 0) {
+      navigate(-1);
+      return;
+    }
+
+    navigate("/projects");
+  }, [location.state, navigate, projectId]);
   useEffect(() => {
     for (const [query, label] of [[dashboardQuery, "extraction dashboard"], [templatesQuery, "extraction templates"], [workloadQuery, "workload"], [projectMembersQuery, "project members"]] as const) {
       if (query.error) toastError(`Failed to load ${label}`, getErrorMessage(query.error, `Unable to load ${label}.`));

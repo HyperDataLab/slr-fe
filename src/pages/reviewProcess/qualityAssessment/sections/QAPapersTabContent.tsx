@@ -3,7 +3,7 @@ import AssessmentQueue from "../components/AssessmentQueue";
 import AssessmentPaperViewer from "../components/AssessmentPaperViewer";
 import ReviewerQAPanel from "../components/ReviewerQAPanel";
 import LeaderQAPanel from "../components/LeaderQAPanel";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ReviewerDecisionPayload } from "../components/ReviewerQAPanel";
 import type {
   QualityAssessmentStrategy,
@@ -14,6 +14,9 @@ import type {
 import type { HighlightArea } from "@react-pdf-viewer/highlight";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../../redux/store";
+import { ArrowLeft, BookOpenText, ChevronLeft, ChevronRight, ListFilter, PanelsTopLeft } from "lucide-react";
+import Drawer from "../../../../components/ui/Drawer";
+import Button from "../../../../components/ui/Button";
 
 export interface HighlightData {
   areas: HighlightArea[];
@@ -45,6 +48,8 @@ interface QAPapersTabContentProps {
     >,
     decisionData?: { notes: string | null; items: ReviewerDecisionPayload[] },
   ) => void;
+  onLeaderSaveDraft?: (notes: string | null, decisions: ReviewerDecisionPayload[]) => void;
+  onBack?: () => void;
   highlightsByCriterion?: Record<string, HighlightData[]>;
   isSaving?: boolean;
   canEdit?: boolean;
@@ -65,19 +70,35 @@ export function QAPapersTabContent({
   onPageChange,
   onReviewerSave,
   onLeaderResolve,
+  onLeaderSaveDraft,
+  onBack,
   isSaving,
   canEdit,
 }: QAPapersTabContentProps) {
   const currentUser = useSelector((state: RootState) => state.auth.user);
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<"paper" | "review">("review");
+  const currentPaperIndex = papers.findIndex((paper) => paper.paperId === selectedPaperId);
+  const previousPageRef = useRef(currentPage);
+  const pageDirectionRef = useRef<"previous" | "next" | null>(null);
   const [activeCriterionId, setActiveCriterionId] = useState<string | null>(
     null,
   );
   const [highlightsByCriterion, setHighlightsByCriterion] = useState<
     Record<string, HighlightData[]>
   >({});
-  const [leaderActiveTab, setLeaderActiveTab] = useState<
-    "reviewers" | "my-assessment"
-  >("reviewers");
+
+  useEffect(() => {
+    if (currentPage === previousPageRef.current || papers.length === 0) return;
+    previousPageRef.current = currentPage;
+    const direction = pageDirectionRef.current;
+    pageDirectionRef.current = null;
+    setSelectedPaperId(direction === "previous" ? papers[papers.length - 1].paperId : papers[0].paperId);
+  }, [currentPage, papers, setSelectedPaperId]);
+
+  useEffect(() => {
+    setMobilePanel(isLeader ? "review" : "paper");
+  }, [selectedPaperId, isLeader]);
 
   useEffect(() => {
     const firstCriterionId =
@@ -120,14 +141,6 @@ export function QAPapersTabContent({
         const initialHighlights: Record<string, HighlightData[]> = {};
 
         lPaper.decisions?.forEach((decision) => {
-          // If the leader is in "my-assessment" mode, they only see their own highlights.
-          if (
-            leaderActiveTab === "my-assessment" &&
-            decision.reviewerId !== currentUser?.id
-          ) {
-            return;
-          }
-
           const reviewer = lPaper.reviewers?.find(
             (r) => r.id === decision.reviewerId,
           );
@@ -189,8 +202,6 @@ export function QAPapersTabContent({
     selectedPaper,
     isLeader,
     strategies,
-    leaderActiveTab,
-    currentUser,
   ]);
 
   const handleAddHighlight = (areas: HighlightArea[]) => {
@@ -227,34 +238,38 @@ export function QAPapersTabContent({
     : [];
 
   return (
-    <div className="min-h-0 w-full flex-1 overflow-auto bg-bg-primary p-3 sm:p-4">
-      <div className="grid min-h-full grid-cols-1 overflow-hidden rounded-xl border border-border bg-surface-white xl:h-full xl:min-h-0 xl:grid-cols-[270px_minmax(0,1fr)_350px]">
-      {/* Paper queue */}
-      <div className="flex min-h-[300px] min-w-0 flex-col overflow-hidden border-b border-border bg-bg-primary xl:h-full xl:min-h-0 xl:border-b-0 xl:border-r">
-        <AssessmentQueue
-          papers={papers}
-          selectedPaperId={selectedPaperId}
-          onSelectPaper={setSelectedPaperId}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          isLeader={isLeader}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          onPageChange={onPageChange}
-        />
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-bg-primary">
+      <div className="sticky top-0 z-20 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-surface-white px-4 py-3 sm:px-6">
+        <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-text-secondary transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 sm:min-h-9">
+          <ArrowLeft size={17} aria-hidden="true" /> Back to assessment
+        </button>
+        <div className="hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-text-primary">{currentPaperIndex >= 0 ? `Paper ${(currentPage - 1) * 10 + currentPaperIndex + 1} of ${totalItems}` : `${totalItems} papers`} <span className="font-normal text-text-secondary">· {isLeader ? "Conflict resolution" : "Quality assessment"}</span></p>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button variant="secondary" size="sm" aria-label="Previous paper" disabled={currentPaperIndex < 0 || (currentPaperIndex === 0 && currentPage <= 1)} onClick={() => currentPaperIndex > 0 ? setSelectedPaperId(papers[currentPaperIndex - 1]?.paperId ?? null) : (pageDirectionRef.current = "previous", onPageChange(currentPage - 1))} className="h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-9"><ChevronLeft size={18} aria-hidden="true" /></Button>
+          <Button variant="secondary" size="sm" aria-label="Next paper" disabled={currentPaperIndex < 0 || (currentPaperIndex >= papers.length - 1 && currentPage >= totalPages)} onClick={() => currentPaperIndex < papers.length - 1 ? setSelectedPaperId(papers[currentPaperIndex + 1]?.paperId ?? null) : (pageDirectionRef.current = "next", onPageChange(currentPage + 1))} className="h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-9"><ChevronRight size={18} aria-hidden="true" /></Button>
+          <Button variant="secondary" size="sm" onClick={() => setIsQueueOpen(true)} className="ml-1 min-h-11 gap-2 px-3 text-sm sm:min-h-9"><ListFilter size={16} className="text-primary" aria-hidden="true" /><span>Paper queue</span></Button>
+        </div>
       </div>
 
-      {/* Paper details */}
-      <div className="relative flex min-h-[520px] min-w-0 flex-col overflow-hidden bg-surface-white xl:h-full xl:min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col xl:overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between border-b border-border bg-surface-white px-4 py-2 xl:hidden" role="tablist" aria-label="Workspace panel">
+        <button type="button" role="tab" aria-selected={mobilePanel === "paper"} onClick={() => setMobilePanel("paper")} className={`inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${mobilePanel === "paper" ? "bg-primary-light text-primary" : "text-text-secondary hover:bg-bg-primary"}`}><BookOpenText size={16} aria-hidden="true" /> Paper</button>
+        <button type="button" role="tab" aria-selected={mobilePanel === "review"} onClick={() => setMobilePanel("review")} className={`inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${mobilePanel === "review" ? "bg-primary-light text-primary" : "text-text-secondary hover:bg-bg-primary"}`}><PanelsTopLeft size={16} aria-hidden="true" /> {isLeader ? "Resolution" : "Assessment"}</button>
+      </div>
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-1 overflow-hidden xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      {/* Paper context */}
+      <div role="tabpanel" className={`${mobilePanel === "paper" ? "flex" : "hidden"} relative h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white xl:flex xl:border-r xl:border-border`}>
         {selectedPaper ? (
-          <div className="h-full overflow-hidden">
+          <div className="h-full min-h-0 overflow-hidden">
             <AssessmentPaperViewer
               paper={selectedPaper}
               highlights={currentHighlights}
               onAddHighlight={handleAddHighlight}
               onRemoveHighlight={handleRemoveHighlight}
-              isLeader={isLeader && leaderActiveTab === "reviewers"}
+              isLeader={isLeader}
             />
           </div>
         ) : (
@@ -270,32 +285,22 @@ export function QAPapersTabContent({
         )}
       </div>
 
-      {/* Assessment / resolution */}
-      <div className="relative z-10 flex min-h-[560px] min-w-0 flex-col overflow-hidden border-t border-border bg-surface-white xl:h-full xl:min-h-0 xl:border-l xl:border-t-0">
+      {/* Unified review and resolution */}
+      <div role="tabpanel" className={`${mobilePanel === "review" ? "flex" : "hidden"} relative z-10 h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface-white xl:flex`}>
         {selectedPaper ? (
-          <div className="flex h-full flex-col">
-            <div className="flex shrink-0 items-center justify-between border-b border-border bg-surface-white px-4 py-3">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">Quality review</p>
-                <p className="mt-0.5 text-sm font-semibold text-text-primary">
-                  {isLeader ? "Conflict Resolution" : "Assessment Criteria"}
-                </p>
-              </div>
-              <span className="rounded-full border border-border bg-bg-secondary px-2.5 py-1 text-[11px] font-medium text-text-secondary">{isLeader ? "Leader" : "Reviewer"}</span>
-            </div>
+          <div className="flex h-full min-h-0 flex-col">
             <div className="flex-1 overflow-hidden">
               {isLeader ? (
                 <LeaderQAPanel
                   paper={selectedPaper as LeaderQAPaperResponse}
                   strategies={strategies}
                   onResolve={onLeaderResolve!}
+                  onSaveDraft={onLeaderSaveDraft}
                   isResolving={isSaving}
                   activeCriterionId={activeCriterionId}
                   onSelectCriterion={setActiveCriterionId}
                   highlightsByCriterion={highlightsByCriterion}
                   canEdit={canEdit}
-                  activeTab={leaderActiveTab}
-                  onTabChange={setLeaderActiveTab}
                 />
               ) : (
                 <ReviewerQAPanel
@@ -321,6 +326,21 @@ export function QAPapersTabContent({
         )}
       </div>
       </div>
+      </div>
+      <Drawer isOpen={isQueueOpen} onClose={() => setIsQueueOpen(false)} title="Paper queue" description="Choose a paper to assess." side="left" maxWidth="max-w-sm" contentClassName="min-h-0 flex-1 p-0">
+        <AssessmentQueue
+          papers={papers}
+          selectedPaperId={selectedPaperId}
+          onSelectPaper={(paperId) => { setSelectedPaperId(paperId); setIsQueueOpen(false); }}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          isLeader={isLeader}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={onPageChange}
+        />
+      </Drawer>
     </div>
   );
 }

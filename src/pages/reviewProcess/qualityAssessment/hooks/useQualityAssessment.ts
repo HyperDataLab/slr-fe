@@ -92,6 +92,7 @@ export function useQualityAssessment(id?: string, isLeader?: boolean, params?: Q
       qualityAssessmentService.submitDecisions(vars),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.myAssignedPapers(id ?? "") });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.papers(id ?? "") });
       toastSuccess("Decisions saved successfully");
     },
     onError: (error) => {
@@ -104,6 +105,7 @@ export function useQualityAssessment(id?: string, isLeader?: boolean, params?: Q
       qualityAssessmentService.updateDecisions(vars),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.myAssignedPapers(id ?? "") });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.papers(id ?? "") });
       toastSuccess("Decisions updated successfully");
     },
     onError: (error) => {

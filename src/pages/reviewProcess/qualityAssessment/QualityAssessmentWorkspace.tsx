@@ -18,9 +18,12 @@ import { ProjectRole } from "../../../types/project";
 import type { ReviewerDecisionPayload } from "./components/ReviewerQAPanel";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../redux/store";
-import { CheckCircle2, CircleDashed, Clock3, Files } from "lucide-react";
+import { cn } from "../../../utils/cn";
 import Button from "../../../components/ui/Button";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
+import { useContext } from "react";
+import { ClientWorkspaceSidebarContext } from "../../../contexts/ClientWorkspaceSidebarContext";
+import { ArrowLeft } from "lucide-react";
 
 export type WorkspaceQAPaper = QAPaperResponse | LeaderQAPaperResponse;
 
@@ -33,7 +36,35 @@ const defaultQAStats = {
   completionPercentage: 0,
 };
 
+function QAMetricCard({
+  title,
+  value,
+  tone,
+}: {
+  title: string;
+  value: number;
+  tone: "neutral" | "blue" | "success" | "warning";
+}) {
+  const styles = {
+    neutral: { dot: "bg-text-secondary", value: "text-text-primary" },
+    blue: { dot: "bg-primary", value: "text-primary" },
+    success: { dot: "bg-success", value: "text-success" },
+    warning: { dot: "bg-warning", value: "text-warning" },
+  }[tone];
+
+  return (
+    <div className="rounded-xl border border-border bg-surface-white px-4 py-3.5">
+      <div className="flex items-center gap-2">
+        <span aria-hidden="true" className={cn("h-1.5 w-1.5 rounded-full", styles.dot)} />
+        <p className="text-[13px] font-medium text-text-secondary">{title}</p>
+      </div>
+      <p className={cn("mt-3 text-[26px] font-semibold leading-none tracking-tight tabular-nums", styles.value)}>{value}</p>
+    </div>
+  );
+}
+
 export default function QualityAssessmentWorkspace() {
+  const onOpenWorkspaceSidebar = useContext(ClientWorkspaceSidebarContext);
   const { projectId, qualityAssessmentId, processId } = useParams<{
     projectId: string;
     qualityAssessmentId: string;
@@ -278,6 +309,38 @@ export default function QualityAssessmentWorkspace() {
     }
   };
 
+  const handleLeaderSaveDraft = (
+    notes: string | null,
+    decisionitems: ReviewerDecisionPayload[],
+  ) => {
+    if (!selectedPaperId || !qualityAssessmentId || !isLeader) return;
+    const paper = selectedPaper as LeaderQAPaperResponse | null;
+    const myDecision = paper?.decisions?.find((decision) => decision.reviewerId === currentUser?.id);
+    const decisionItems = decisionitems.map((item) => ({
+      id: item.itemId || null,
+      qualityCriterionId: item.criterionId,
+      value: item.value,
+      comment: item.comment,
+      pdfHighlightCoordinates: item.pdfHighlightCoordinates,
+    }));
+
+    if (myDecision?.id) {
+      updateDecisions({ id: myDecision.id, notes, decisionItems });
+    } else {
+      submitDecisions({
+        paperId: selectedPaperId,
+        qualityAssessmentProcessId: qualityAssessmentId,
+        notes,
+        decisionItems: decisionItems.map(({ qualityCriterionId, value, comment, pdfHighlightCoordinates }) => ({
+          qualityCriterionId,
+          value,
+          comment,
+          pdfHighlightCoordinates,
+        })),
+      });
+    }
+  };
+
   const handleLeaderResolve = (
     data: Omit<
       QualityAssessmentResolutionRequest,
@@ -372,28 +435,41 @@ export default function QualityAssessmentWorkspace() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-bg-primary relative">
-      <QAHeader
-        onBack={viewMode === "edit" ? closeEditSpace : handleBack}
-        stats={stats}
-        phaseStatus={isError ? "Unavailable" : phaseStatus ?? "NotStarted"}
-        unavailable={isError}
-        onExport={isLeader && !isError ? exportCsv : undefined}
-        rightControls={
-          isLeader &&
-          !isError &&
-          canEdit && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsAutoResolveOpen(true)}
-              className="h-12 min-h-12 border-accent/30 bg-primary-light px-3 text-xs font-medium text-accent hover:bg-primary-light"
-            >
-              Auto-Resolve
-            </Button>
-          )
-        }
-      />
+    <div className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-bg-primary">
+      {viewMode === "list" && (
+        <QAHeader
+          onMenuClick={onOpenWorkspaceSidebar}
+          stats={stats}
+          phaseStatus={isError ? "Unavailable" : phaseStatus ?? "NotStarted"}
+          unavailable={isError}
+          onExport={isLeader && !isError ? exportCsv : undefined}
+          rightControls={
+            isLeader &&
+            !isError &&
+            canEdit && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAutoResolveOpen(true)}
+                className="min-h-11 normal-case tracking-normal"
+              >
+                Auto-Resolve
+              </Button>
+            )
+          }
+        />
+      )}
+
+      {viewMode === "list" && <nav className="mx-auto w-full max-w-[1520px] px-4 pt-4 sm:px-6 lg:px-8">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="inline-flex min-h-9 items-center gap-2 text-sm text-text-secondary transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+        >
+          <ArrowLeft size={17} aria-hidden="true" />
+          Back to project
+        </button>
+      </nav>}
 
       {viewMode === "list" && isError ? (
         <main className="mx-auto flex w-full max-w-3xl flex-1 items-center justify-center px-5 py-12 sm:px-6">
@@ -404,91 +480,34 @@ export default function QualityAssessmentWorkspace() {
           </div>
         </main>
       ) : viewMode === "list" ? (
-        <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-5 overflow-auto px-5 py-5 sm:px-6 lg:gap-6 lg:px-8">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight text-text-primary">
-                Assessment workspace
-              </h2>
-              <p className="mt-1 text-sm text-text-secondary">
-                Assign studies, track reviewer progress, and resolve assessments.
-              </p>
-            </div>
-          </div>
-
-          <section aria-label="Assessment progress" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-            <div className="flex items-center justify-between rounded-xl border border-border bg-surface-white p-4 sm:p-5">
-              <div>
-                <p className="text-sm text-text-secondary">Total studies</p>
-                <p className="mt-2 text-2xl font-semibold leading-none text-text-primary">{stats.total}</p>
-                <p className="mt-2 text-xs text-text-secondary">Included for quality review</p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-bg-primary text-text-secondary"><Files size={19} /></div>
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-success/20 bg-surface-white p-4 sm:p-5">
-              <div>
-                <p className="text-sm text-text-secondary">Completed</p>
-                <p className="mt-2 text-2xl font-semibold leading-none text-text-primary">{stats.completed}</p>
-                <p className="mt-2 text-xs text-text-secondary">Assessment submitted</p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10 text-success"><CheckCircle2 size={19} /></div>
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-accent/30 bg-surface-white p-4 sm:p-5">
-              <div>
-                <p className="text-sm text-text-secondary">In progress</p>
-                <p className="mt-2 text-2xl font-semibold leading-none text-text-primary">{stats.inProgress}</p>
-                <p className="mt-2 text-xs text-text-secondary">Reviewer work underway</p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-light text-accent"><Clock3 size={19} /></div>
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-warning/20 bg-surface-white p-4 sm:p-5">
-              <div>
-                <p className="text-sm text-text-secondary">{isLeader ? "Not started" : "Pending"}</p>
-                <p className="mt-2 text-2xl font-semibold leading-none text-text-primary">{isLeader ? stats.notStarted : stats.pending}</p>
-                <p className="mt-2 text-xs text-text-secondary">Waiting for reviewer activity</p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10 text-warning"><CircleDashed size={19} /></div>
-            </div>
+        <main className="mx-auto flex w-full max-w-[1520px] flex-1 flex-col gap-4 overflow-auto px-4 py-5 sm:px-6 lg:gap-5 lg:px-8">
+          <section aria-label="Assessment progress" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <QAMetricCard title="Total studies" value={stats.total} tone="neutral" />
+            <QAMetricCard title="Completed" value={stats.completed} tone="success" />
+            <QAMetricCard title="In progress" value={stats.inProgress} tone="blue" />
+            <QAMetricCard title={isLeader ? "Not started" : "Pending"} value={isLeader ? stats.notStarted : stats.pending} tone="warning" />
           </section>
 
-          <div
-            className={
-              isLeader && memberProgresses.length > 0
-                ? "grid grid-cols-1 items-start gap-5 xl:grid-cols-4 xl:gap-6"
-                : "block"
-            }
-          >
-            <div
-              className={
-                isLeader && memberProgresses.length > 0
-                  ? "min-w-0 xl:col-span-3"
-                  : "w-full"
-              }
-            >
-              <AssignMembersTabContent
-                papers={activePapers}
-                isLeader={isLeader}
-                onPaperClick={openEditSpace}
-                onAssignClick={handleAssignClick}
-                onReopenPaper={handleReopenPaper}
-                searchQuery={searchQuery}
-                onSearchChange={(q) => {
-                  setSearchQuery(q);
-                  setQaPage(1);
-                }}
-                currentPage={qaPage}
-                totalPages={totalPagesList ?? 1}
-                totalItems={totalItemsList ?? 0}
-                onPageChange={setQaPage}
-              />
-            </div>
+          {isLeader && memberProgresses.length > 0 && (
+            <ReviewerProgressPanel reviewerProgresses={memberProgresses} />
+          )}
 
-            {isLeader && memberProgresses.length > 0 && (
-              <div className="min-w-0 xl:col-span-1">
-                <ReviewerProgressPanel reviewerProgresses={memberProgresses} />
-              </div>
-            )}
-          </div>
+          <AssignMembersTabContent
+            papers={activePapers}
+            isLeader={isLeader}
+            onPaperClick={openEditSpace}
+            onAssignClick={handleAssignClick}
+            onReopenPaper={handleReopenPaper}
+            searchQuery={searchQuery}
+            onSearchChange={(q) => {
+              setSearchQuery(q);
+              setQaPage(1);
+            }}
+            currentPage={qaPage}
+            totalPages={totalPagesList ?? 1}
+            totalItems={totalItemsList ?? 0}
+            onPageChange={setQaPage}
+          />
         </main>
       ) : (
         <main className="flex-1 min-h-0 flex flex-col pt-0 w-full overflow-hidden bg-surface-white">
@@ -510,6 +529,8 @@ export default function QualityAssessmentWorkspace() {
             onPageChange={setQaPage}
             onReviewerSave={handleReviewerSave}
             onLeaderResolve={handleLeaderResolve}
+            onLeaderSaveDraft={handleLeaderSaveDraft}
+            onBack={closeEditSpace}
             isSaving={
               isSubmittingDecisions ||
               isUpdatingDecisions ||

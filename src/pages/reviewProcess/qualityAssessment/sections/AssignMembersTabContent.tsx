@@ -1,14 +1,12 @@
 import { useState } from "react";
 import type { WorkspaceQAPaper } from "../QualityAssessmentWorkspace";
 import {
-  Search,
   User,
   FileText,
   CheckCircle2,
   Clock,
   RotateCcw,
 } from "lucide-react";
-import Card from "../../../../components/ui/Card";
 import {
   Table,
   TableBody,
@@ -17,7 +15,10 @@ import {
   TableHeader,
   TableRow,
 } from "../../../../components/ui/Table";
+import DataTableToolbar from "../../../../components/ui/DataTableToolbar";
+import Input from "../../../../components/ui/Input";
 import Pagination from "../../../../components/ui/Pagination";
+import { FiSearch } from "react-icons/fi";
 
 interface AssignMembersTabContentProps {
   papers: WorkspaceQAPaper[];
@@ -91,39 +92,35 @@ export function AssignMembersTabContent({
   };
 
   return (
-    <Card className="overflow-hidden rounded-xl border border-border bg-surface-white shadow-none">
-      <div className="flex flex-col justify-between gap-4 border-b border-border bg-surface-white p-4 sm:flex-row sm:items-center sm:p-5">
-        <div>
-          <h2 className="text-base font-semibold text-text-primary sm:text-lg">
-            {isLeader
-              ? "Assign Papers to Team Members"
-              : "My Assessment Papers"}
-          </h2>
-          <p className="mt-1 text-sm text-text-secondary">
-            {isLeader
-              ? "Distribute quality assessment tasks among the review team."
-              : "Review and evaluate your assigned papers."}
-          </p>
-        </div>
-
-        <div className="flex w-full gap-2 sm:w-auto sm:gap-3">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary group-focus-within:text-accent transition-colors" />
-            <input
+    <section className="shrink-0 overflow-hidden rounded-xl border border-border bg-surface-white">
+      <h2 className="sr-only">
+        {isLeader ? "Assign Papers to Team Members" : "My Assessment Papers"}
+      </h2>
+      <DataTableToolbar
+        search={(
+          <label className="group relative w-full min-w-0 sm:max-w-[320px] sm:flex-1">
+            <span className="sr-only">Search papers by title or author</span>
+            <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted transition-colors group-focus-within:text-accent" />
+            <Input
               type="search"
-              aria-label="Search papers by title"
+              aria-label="Search papers by title or author"
               value={searchQuery}
               onChange={(e) => {
                 if (onSearchChange) onSearchChange(e.target.value);
               }}
-              placeholder="Search papers by title..."
-              className="min-h-11 w-full rounded-xl border border-border bg-surface-white py-2.5 pl-10 pr-4 text-sm text-text-primary transition-[border-color,box-shadow] placeholder:text-text-secondary/80 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 motion-reduce:transition-none sm:w-72"
+              placeholder="Search title, authors..."
+              className="h-9 min-h-9 w-full rounded-lg border-border bg-surface-white pl-9 text-[13px] transition-colors placeholder:text-text-muted focus:border-primary focus:ring-2 focus:ring-primary/20 motion-reduce:transition-none"
             />
-          </div>
-        </div>
-      </div>
+          </label>
+        )}
+        actions={selectedIds.size > 0 ? (
+          <span className="text-xs text-text-secondary" aria-live="polite">
+            {selectedIds.size} selected
+          </span>
+        ) : undefined}
+      />
 
-      <div className="divide-y divide-border md:hidden">
+      <div className="divide-y divide-border lg:hidden">
         {papers.map((paper) => {
           const status = getPaperStatus(paper, isLeader);
           const statusStyles: Record<string, string> = {
@@ -212,11 +209,18 @@ export function AssignMembersTabContent({
         })}
       </div>
 
-      <div className="hidden overflow-x-auto md:block">
-        <Table>
+      <div className="hidden lg:block">
+        <Table className="w-full min-w-[980px] table-fixed">
+          <colgroup>
+            <col className="w-12" />
+            <col className={isLeader ? "w-[48%]" : "w-[64%]"} />
+            {isLeader && <col className="w-[25%]" />}
+            <col className="w-[15%]" />
+            {isLeader && <col className="w-[12%]" />}
+          </colgroup>
           <TableHeader className="bg-bg-primary">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-12 text-center">
+              <TableHead className="w-12 px-4 py-2.5 text-xs font-semibold normal-case tracking-normal text-center">
                 <input
                   type="checkbox"
                   aria-label="Select all papers"
@@ -229,19 +233,19 @@ export function AssignMembersTabContent({
                   className="rounded-md border-border text-accent transition-colors focus:ring-primary/40 motion-reduce:transition-none"
                 />
               </TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+              <TableHead className="px-4 py-2.5 text-xs font-semibold normal-case tracking-normal">
                 Paper Details
               </TableHead>
               {isLeader && (
-                <TableHead className="w-48 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                <TableHead className="w-52 px-4 py-2.5 text-xs font-semibold normal-case tracking-normal">
                   Assigned Reviewers
                 </TableHead>
               )}
-              <TableHead className="w-40 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+              <TableHead className="w-40 px-4 py-2.5 text-xs font-semibold normal-case tracking-normal">
                 Status
               </TableHead>
               {isLeader && (
-                <TableHead className="w-28 text-right text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                <TableHead className="w-28 px-4 py-2.5 text-right text-xs font-semibold normal-case tracking-normal">
                   Action
                 </TableHead>
               )}
@@ -251,11 +255,11 @@ export function AssignMembersTabContent({
             {papers.map((paper) => (
               <TableRow
                 key={paper.paperId}
-                className="group cursor-pointer transition-colors hover:bg-primary-light/40"
+                className="group cursor-pointer bg-surface-white transition-colors motion-reduce:transition-none hover:bg-bg-primary/60"
                 onClick={() => onPaperClick(paper.paperId)}
               >
                 <TableCell
-                  className="text-center"
+                  className="w-12 px-4 py-2.5 text-center"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <input
@@ -263,33 +267,28 @@ export function AssignMembersTabContent({
                     aria-label={`Select ${paper.title}`}
                     checked={selectedIds.has(paper.paperId)}
                     onChange={() => togglePaper(paper.paperId)}
-                  className="rounded-md border-border text-accent transition-colors focus:ring-primary/40 motion-reduce:transition-none"
+                    className="rounded-md border-border text-accent transition-colors focus:ring-primary/40 motion-reduce:transition-none"
                   />
                 </TableCell>
-                <TableCell>
-                  <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-primary-light text-accent">
-                      <FileText size={16} />
-                    </div>
-                    <div className="flex flex-col">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onPaperClick(paper.paperId);
-                        }}
-                        className="line-clamp-2 text-left text-sm font-medium text-text-primary transition-colors hover:text-accent focus-visible:outline-none focus-visible:underline"
-                      >
-                        {paper.title}
-                      </button>
-                      <span className="text-xs text-text-secondary mt-1 line-clamp-1">
-                        {paper.authors || "Unknown authors"}
-                      </span>
-                    </div>
+                <TableCell className="px-4 py-2.5">
+                  <div className="flex min-w-0 flex-col">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onPaperClick(paper.paperId);
+                      }}
+                      className="line-clamp-2 text-left text-sm font-semibold text-text-primary transition-colors hover:text-accent focus-visible:outline-none focus-visible:underline"
+                    >
+                      {paper.title}
+                    </button>
+                    <span className="mt-1 line-clamp-1 text-xs text-text-secondary">
+                      {paper.authors || "Unknown authors"}
+                    </span>
                   </div>
                 </TableCell>
                 {isLeader && (
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       <div className="flex -space-x-2 overflow-hidden">
                         {getPaperReviewers(paper).length === 0 ? (
@@ -341,7 +340,7 @@ export function AssignMembersTabContent({
                     </div>
                   </TableCell>
                 )}
-                <TableCell>
+                <TableCell className="px-4 py-2.5">
                   {(() => {
                     const status = getPaperStatus(paper, isLeader);
 
@@ -405,7 +404,7 @@ export function AssignMembersTabContent({
 
                     return (
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${style.bg} ${style.text}`}
+                        className={`inline-flex min-h-7 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-medium leading-none ${style.bg} ${style.text}`}
                       >
                         {style.icon}
                         {style.label}
@@ -414,17 +413,16 @@ export function AssignMembersTabContent({
                   })()}
                 </TableCell>
                 {isLeader && (
-                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                     {paper.resolution && (
                       <button
                         type="button"
                         onClick={() => onReopenPaper?.(paper.paperId)}
-                        className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-warning/20 bg-warning/10 px-2.5 py-1.5 text-xs font-semibold text-warning transition-colors hover:border-warning/40 hover:bg-warning/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 motion-reduce:transition-none"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-warning/20 bg-warning/10 text-warning transition-colors hover:border-warning/40 hover:bg-warning/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 motion-reduce:transition-none"
                         aria-label={`Reopen ${paper.title}`}
                         title="Reopen this paper for reviewer corrections"
                       >
-                        <RotateCcw size={13} aria-hidden="true" />
-                        Reopen
+                        <RotateCcw size={14} aria-hidden="true" />
                       </button>
                     )}
                   </TableCell>
@@ -446,22 +444,25 @@ export function AssignMembersTabContent({
         )}
       </div>
 
-      <div className="flex flex-col items-start justify-between gap-3 border-t border-border bg-surface-white px-4 py-3 sm:flex-row sm:items-center sm:px-5">
-        <div className="text-sm text-text-secondary">
-          Showing {(currentPage - 1) * pageSize + 1} to{" "}
-          {Math.min(currentPage * pageSize, totalItems)} of {totalItems} results
+      <footer className="flex flex-col gap-2 border-t border-border bg-bg-primary/50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <p className="text-xs text-text-secondary">
+          Showing {totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalItems)} of {totalItems} results
           {selectedIds.size > 0 && (
             <span className="ml-2 font-medium text-accent">
               · {selectedIds.size} selected
             </span>
           )}
-        </div>
-        <Pagination
+        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
+          <span className="text-xs text-text-secondary">Per page: {pageSize}</span>
+          <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={onPageChange}
+          compact
         />
-      </div>
-    </Card>
+        </div>
+      </footer>
+    </section>
   );
 }

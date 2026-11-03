@@ -15,6 +15,7 @@ import { useDataExtractionWorkspace } from "../hooks/useDataExtractionWorkspace"
 vi.mock("react-router-dom", () => ({
   useNavigate: () => vi.fn(),
   useParams: () => ({ projectId: "project-1" }),
+  useLocation: () => ({ state: null }),
 }));
 
 function TestProviders({

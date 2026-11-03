@@ -8,6 +8,7 @@ import type { RootState } from "../redux/store";
 import AdminAccessGuard from "../components/auth/AdminAccessGuard";
 import SectionGuard from "../components/auth/SectionGuard";
 import SignalRConnectionManager from "../components/SignalRConnectionManager";
+import { ClientWorkspaceSidebarContext } from "../contexts/ClientWorkspaceSidebarContext";
 
 export default function MainLayout() {
   const { pathname } = useLocation();
@@ -23,12 +24,14 @@ export default function MainLayout() {
   const isSynthesisWorkspace = /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?synthesis(?:\/|$)/.test(pathname);
   const isPrismaReportWorkspace = /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?prisma-report(?:\/|$)/.test(pathname);
   const isChecklistEditorWorkspace = /\/projects\/[^/]+\/checklists\/[^/]+(?:\/|$)/.test(pathname);
-  const isViewportWorkspace = isScreeningWorkspace || isFullTextScreeningWorkspace || isChecklistEditorWorkspace;
+  const isProjectsRoute = pathname === "/projects" || pathname.startsWith("/projects/");
+  const isViewportWorkspace = isScreeningWorkspace || isFullTextScreeningWorkspace || isChecklistEditorWorkspace || isQualityAssessmentWorkspace;
   const showHeader = !isScreeningWorkspace && !isFullTextScreeningWorkspace && !isReviewProcessDashboard &&
     !isDataExtractionWorkspace && !isQualityAssessmentWorkspace &&
-    !isSynthesisWorkspace && !isPrismaReportWorkspace && !isChecklistEditorWorkspace;
+    !isSynthesisWorkspace && !isPrismaReportWorkspace && !isChecklistEditorWorkspace && !isProjectsRoute;
   const showClientSidebar = isAuthenticated && (
-    showHeader || isReviewProcessDashboard || isScreeningWorkspace || isFullTextScreeningWorkspace
+    showHeader || isProjectsRoute || isReviewProcessDashboard || isScreeningWorkspace || isFullTextScreeningWorkspace ||
+    isDataExtractionWorkspace || isQualityAssessmentWorkspace
   ) && (
     pathname === "/projects" || pathname.startsWith("/projects/") ||
     pathname === "/shared-repository" || pathname.startsWith("/shared-repository/") || pathname === "/profile" || pathname === "/issue-reports"
@@ -54,7 +57,9 @@ export default function MainLayout() {
         >
           <AdminAccessGuard />
           <SectionGuard section="client">
-            <Outlet />
+            <ClientWorkspaceSidebarContext.Provider value={() => setIsMobileSidebarOpen(true)}>
+              <Outlet />
+            </ClientWorkspaceSidebarContext.Provider>
           </SectionGuard>
         </main>
         {!isViewportWorkspace && !isChecklistEditorWorkspace && <Footer />}

@@ -1,567 +1,307 @@
-import { useState, useMemo, useEffect } from "react";
-import { FiCheckCircle, FiXCircle, FiHelpCircle } from "react-icons/fi";
-import type {
-  LeaderQAPaperResponse,
-  QualityAssessmentStrategy,
-  QualityAssessmentResolutionRequest,
-  QualityAssessmentDecisionItemResponse,
-} from "../../../../types/qualityAssessment";
+import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronDown, CircleCheck, Save } from "lucide-react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../../redux/store";
+import type {
+  LeaderQAPaperResponse,
+  QualityAssessmentDecisionItemResponse,
+  QualityAssessmentResolutionRequest,
+  QualityAssessmentStrategy,
+} from "../../../../types/qualityAssessment";
 import type { ReviewerDecisionPayload } from "./ReviewerQAPanel";
 import type { HighlightData } from "../sections/QAPapersTabContent";
+
+type CriterionAnswer = {
+  value: number;
+  comment?: string;
+  id?: string;
+  pdfHighlightCoordinates?: string;
+};
 
 interface LeaderQAPanelProps {
   paper: LeaderQAPaperResponse;
   strategies: QualityAssessmentStrategy[];
   onResolve: (
-    data: Omit<
-      QualityAssessmentResolutionRequest,
-      "qualityAssessmentProcessId" | "paperId"
-    >,
+    data: Omit<QualityAssessmentResolutionRequest, "qualityAssessmentProcessId" | "paperId">,
     decisionData?: { notes: string | null; items: ReviewerDecisionPayload[] },
   ) => void;
+  onSaveDraft?: (notes: string | null, items: ReviewerDecisionPayload[]) => void;
   isResolving?: boolean;
   activeCriterionId?: string | null;
   onSelectCriterion?: (id: string | null) => void;
   highlightsByCriterion?: Record<string, HighlightData[]>;
   canEdit?: boolean;
-  activeTab?: "reviewers" | "my-assessment";
-  onTabChange?: (tab: "reviewers" | "my-assessment") => void;
 }
+
+const answerLabels: Record<number, string> = { 0: "Yes", 1: "No", 2: "Unclear" };
 
 export default function LeaderQAPanel({
   paper,
   strategies,
   onResolve,
+  onSaveDraft,
   isResolving,
   activeCriterionId,
   onSelectCriterion,
-  highlightsByCriterion,
   canEdit = true,
-  activeTab: externalActiveTab,
-  onTabChange,
 }: LeaderQAPanelProps) {
   const currentUser = useSelector((state: RootState) => state.auth.user);
+  const [finalDecision, setFinalDecision] = useState<number | null>(paper.resolution?.finalDecision ?? null);
+  const [resolutionNotes, setResolutionNotes] = useState(paper.resolution?.resolutionNotes ?? "");
+  const [answers, setAnswers] = useState<Record<string, CriterionAnswer>>({});
+  const [notes, setNotes] = useState("");
+  const [filter, setFilter] = useState<"conflicts" | "all" | "resolved">("all");
+  const [openCriterionIds, setOpenCriterionIds] = useState<Set<string>>(new Set());
+  const [isFinalDecisionOpen, setIsFinalDecisionOpen] = useState(paper.resolution?.finalDecision != null);
 
-  const [internalActiveTab, setInternalActiveTab] = useState<
-    "reviewers" | "my-assessment"
-  >("reviewers");
-  const activeTab = externalActiveTab || internalActiveTab;
-  const setActiveTab = (tab: "reviewers" | "my-assessment") => {
-    setInternalActiveTab(tab);
-    onTabChange?.(tab);
-  };
-
-  const [finalDecision, setFinalDecision] = useState<number | null>(
-    paper.resolution?.finalDecision ?? null,
+  const criteria = useMemo(
+    () => strategies.flatMap((strategy) => strategy.checklists.flatMap((checklist) =>
+      checklist.criteria.map((criterion) => ({ ...criterion, checklistName: checklist.name, strategyName: strategy.description }))),
+    ),
+    [strategies],
   );
-  const [resolutionNotes, setResolutionNotes] = useState(
-    paper.resolution?.resolutionNotes ?? "",
-  );
-
-  // Leader's own assessment state
-  const [answers, setAnswers] = useState<
-    Record<
-      string,
-      {
-        value: number;
-        comment?: string;
-        id?: string;
-        pdfHighlightCoordinates?: string;
-      }
-    >
-  >({});
-  const [notes, setNotes] = useState<string>("");
 
   useEffect(() => {
-    if (!paper || !currentUser) return;
-    const initialAnswers: Record<
-      string,
-      {
-        value: number;
-        comment?: string;
-        id?: string;
-        pdfHighlightCoordinates?: string;
-      }
-    > = {};
-
-    // Find leader's own decision if it exists
-    const myDecision = paper.decisions?.find(
-      (d) => d.reviewerId === currentUser.id,
-    );
-    myDecision?.decisionItems?.forEach((item) => {
-      if (item.qualityCriterionId && item.value !== null) {
-        initialAnswers[item.qualityCriterionId] = {
+    const ownDecision = paper.decisions?.find((decision) => decision.reviewerId === currentUser?.id);
+    const initial: Record<string, CriterionAnswer> = {};
+    ownDecision?.decisionItems?.forEach((item) => {
+      if (item.qualityCriterionId && item.value != null) {
+        initial[item.qualityCriterionId] = {
           value: Number(item.value),
-          comment: item.comment || "",
-          id: item.id || undefined,
-          pdfHighlightCoordinates: item.pdfHighlightCoordinates || "",
+          comment: item.comment ?? "",
+          id: item.id ?? undefined,
+          pdfHighlightCoordinates: item.pdfHighlightCoordinates ?? "",
         };
       }
     });
-
-    setAnswers(initialAnswers);
-    setNotes("");
+    setAnswers(initial);
     setFinalDecision(paper.resolution?.finalDecision ?? null);
     setResolutionNotes(paper.resolution?.resolutionNotes ?? "");
-  }, [paper, currentUser]);
+    setNotes("");
+    setIsFinalDecisionOpen(paper.resolution?.finalDecision != null);
+    // Reset the local editor only when switching papers; query refreshes must not discard a draft.
+  }, [paper.paperId, currentUser?.id]);
 
-  const handleResolve = () => {
-    // Only lock submit button when no resolution selected
-    if (finalDecision === null) return;
-
-    // Prepare decision items
-    const decisionItems: ReviewerDecisionPayload[] = Object.keys(answers).map(
-      (critId) => {
-        const a = answers[critId];
-        let highlightStr = a.pdfHighlightCoordinates;
-
-        if (highlightsByCriterion?.[critId]) {
-          // Flatten the areas and map to format: page,x,y,height,width
-          highlightStr = highlightsByCriterion[critId]
-            .flatMap((r) => r.areas)
-            .map(
-              (a) => `${a.pageIndex},${a.left},${a.top},${a.height},${a.width}`,
-            )
-            .join(";");
-        }
-
-        return {
-          criterionId: critId,
-          itemId: a.id,
-          value: a.value,
-          comment: a.comment,
-          pdfHighlightCoordinates: highlightStr,
-        };
-      },
-    );
-
-    const hasMadeDecisions = decisionItems.length > 0;
-
-    onResolve(
-      {
-        finalDecision,
-        finalScore: 0,
-        resolutionNotes,
-      },
-      hasMadeDecisions ? { notes, items: decisionItems } : undefined,
-    );
-  };
-
-  const handleAnswer = (criterionId: string, value: number) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [criterionId]: {
-        ...(prev[criterionId] || {}),
-        value,
-      },
-    }));
-  };
-
-  const handleComment = (criterionId: string, comment: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [criterionId]: {
-        ...(prev[criterionId] || { value: 2 }),
-        comment,
-      },
-    }));
-  };
-
-  // Group reviewers' decisions by criterion ID
-  const criteriaDecisions = useMemo(() => {
+  const decisionsByCriterion = useMemo(() => {
     const map: Record<string, Record<string, QualityAssessmentDecisionItemResponse>> = {};
-    if (!paper.decisions) return map;
-
-    paper.decisions.forEach((decision) => {
-      decision.decisionItems?.forEach((item) => {
-        if (!map[item.qualityCriterionId]) {
-          map[item.qualityCriterionId] = {};
-        }
-        map[item.qualityCriterionId][decision.reviewerId] = item;
-      });
-    });
+    paper.decisions?.forEach((decision) => decision.decisionItems?.forEach((item) => {
+      if (!map[item.qualityCriterionId]) map[item.qualityCriterionId] = {};
+      map[item.qualityCriterionId][decision.reviewerId] = item;
+    }));
     return map;
   }, [paper.decisions]);
 
-  const criteriaList = strategies.flatMap((s) =>
-    s.checklists.flatMap((cl) =>
-      cl.criteria.map((c) => ({
-        ...c,
-        checklistName: cl.name,
-        strategyName: s.description,
-      })),
-    ),
-  );
+  const criterionStates = useMemo(() => {
+    const states = new Map<string, { conflict: boolean; resolved: boolean; agreed: boolean; reviewerItems: Array<{ name: string; value: number | null; comment: string | null }> }>();
+    criteria.forEach((criterion) => {
+      const reviewerItems = (paper.reviewers ?? []).map((reviewer) => {
+        const decision = decisionsByCriterion[criterion.criterionId]?.[reviewer.id];
+        return {
+          name: reviewer.fullname || reviewer.username,
+          value: decision?.value == null ? null : Number(decision.value),
+          comment: decision?.comment ?? null,
+        };
+      });
+      const values = [...new Set(reviewerItems.flatMap((item) => item.value == null ? [] : [item.value]))];
+      states.set(criterion.criterionId, {
+        conflict: values.length > 1,
+        resolved: answers[criterion.criterionId]?.value != null,
+        agreed: reviewerItems.length > 0 && values.length === 1 && reviewerItems.every((item) => item.value != null),
+        reviewerItems,
+      });
+    });
+    return states;
+  }, [answers, criteria, decisionsByCriterion, paper.reviewers]);
+
+  useEffect(() => {
+    setOpenCriterionIds(new Set(
+      [...criterionStates.entries()]
+        .filter(([, state]) => state.conflict && !state.resolved)
+        .map(([criterionId]) => criterionId),
+    ));
+  // Set the initial expansion when a different paper is selected.
+  }, [paper.paperId]);
+
+  const counts = useMemo(() => {
+    let conflicts = 0;
+    let resolved = 0;
+    criterionStates.forEach((state) => {
+      if (state.conflict && !state.resolved) conflicts += 1;
+      if (state.resolved) resolved += 1;
+    });
+    return { conflicts, resolved, total: criteria.length };
+  }, [criteria.length, criterionStates]);
+
+  useEffect(() => {
+    setFilter((current) => current === "all" && counts.conflicts > 0 ? "conflicts" : current);
+  }, [counts.conflicts]);
+
+  const visibleCriteria = criteria.filter((criterion) => {
+    const state = criterionStates.get(criterion.criterionId);
+    if (filter === "conflicts") return !!state?.conflict && !state.resolved;
+    if (filter === "resolved") return !!state?.resolved;
+    return true;
+  });
+
+  const decisionItems: ReviewerDecisionPayload[] = Object.entries(answers).map(([criterionId, answer]) => {
+    return {
+      criterionId,
+      itemId: answer.id,
+      value: answer.value,
+      comment: answer.comment,
+      pdfHighlightCoordinates: answer.pdfHighlightCoordinates,
+    };
+  });
+
+  const handleResolve = () => {
+    if (finalDecision === null || !canEdit) return;
+    onResolve(
+      { finalDecision, finalScore: 0, resolutionNotes },
+      decisionItems.length ? { notes, items: decisionItems } : undefined,
+    );
+  };
+
+  const answerCriterion = (criterionId: string, value: number) => {
+    setAnswers((current) => ({ ...current, [criterionId]: { ...current[criterionId], value } }));
+    onSelectCriterion?.(criterionId);
+  };
 
   return (
-    <div className="relative flex h-full flex-col bg-surface-white">
-      <div className="flex shrink-0 border-b border-border bg-bg-primary/60 px-2 pt-2">
-        <button
-          className={`min-h-11 flex-1 rounded-t-lg px-1 py-2.5 text-xs font-semibold transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
-            activeTab === "reviewers"
-              ? "bg-surface-white text-primary shadow-[0_-1px_0_0_#DCE4E9,1px_0_0_0_#DCE4E9,-1px_0_0_0_#DCE4E9]"
-              : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
-          }`}
-          onClick={() => setActiveTab("reviewers")}
-        >
-          Reviewers' Decisions
-        </button>
-        <button
-          className={`min-h-11 flex-1 rounded-t-lg px-1 py-2.5 text-xs font-semibold transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
-            activeTab === "my-assessment"
-              ? "bg-surface-white text-primary shadow-[0_-1px_0_0_#DCE4E9,1px_0_0_0_#DCE4E9,-1px_0_0_0_#DCE4E9]"
-              : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
-          }`}
-          onClick={() => setActiveTab("my-assessment")}
-        >
-          My Assessment
-        </button>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 pb-24">
-        {activeTab === "reviewers" ? (
-          <>
-            <div className="space-y-4 pb-4">
-              {criteriaList.map((crit, idx) => {
-                const decisionsForCrit =
-                  criteriaDecisions[crit.criterionId] || {};
-
-                // Group reviewers by their choice
-                const groupedDecisions = {
-                  yes: [] as Array<{
-                    reviewer: (typeof paper.reviewers)[0];
-                    decision: QualityAssessmentDecisionItemResponse | undefined;
-                  }>,
-                  no: [] as Array<{
-                    reviewer: (typeof paper.reviewers)[0];
-                    decision: QualityAssessmentDecisionItemResponse | undefined;
-                  }>,
-                  unclear: [] as Array<{
-                    reviewer: (typeof paper.reviewers)[0];
-                    decision: QualityAssessmentDecisionItemResponse | undefined;
-                  }>,
-                  unanswered: [] as Array<{
-                    reviewer: (typeof paper.reviewers)[0];
-                    decision: QualityAssessmentDecisionItemResponse | undefined;
-                  }>,
-                };
-
-                paper.reviewers.forEach((reviewer) => {
-                  const decision = decisionsForCrit[reviewer.id];
-                  const val =
-                    decision?.value !== null && decision?.value !== undefined
-                      ? Number(decision.value)
-                      : null;
-
-                  if (val === 0)
-                    groupedDecisions.yes.push({ reviewer, decision });
-                  else if (val === 1)
-                    groupedDecisions.no.push({ reviewer, decision });
-                  else if (val === 2)
-                    groupedDecisions.unclear.push({ reviewer, decision });
-                  else groupedDecisions.unanswered.push({ reviewer, decision });
-                });
-
-                const comments = paper.reviewers
-                  .map((r) => ({
-                    reviewer: r,
-                    decision: decisionsForCrit[r.id],
-                  }))
-                  .filter((d) => d.decision?.comment);
-
-                return (
-                  <div
-                    key={crit.criterionId}
-                    onClick={() => onSelectCriterion?.(crit.criterionId)}
-                    className={`cursor-pointer rounded-xl border p-3.5 transition-colors ${activeCriterionId === crit.criterionId ? "border-primary/30 bg-primary-light/70" : "border-border bg-bg-primary hover:border-primary/20"}`}
-                  >
-                    <p className="text-xs font-medium text-text-primary mb-3">
-                      {idx + 1}. {crit.question}
-                    </p>
-
-                    <div className="flex flex-col gap-3">
-                      {/* Grouped Choices */}
-                      <div className="flex flex-wrap gap-2">
-                        {/* Yes Group */}
-                        {groupedDecisions.yes.length > 0 && (
-                          <div className="flex items-center gap-1.5 rounded-xl border border-success/20 bg-success/10 px-2 py-1.5">
-                            <FiCheckCircle className="h-3.5 w-3.5 text-success" />
-                            <span className="mr-1 text-xs font-medium text-success">
-                              Yes
-                            </span>
-                            <div className="flex -space-x-1.5">
-                              {groupedDecisions.yes.map(({ reviewer }) => (
-                                <div
-                                  key={reviewer.id}
-                                  className="relative group shrink-0"
-                                >
-                                  <div className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-white ring-1 ring-success/20">
-                                    <span className="text-[9px] font-bold leading-none text-success">
-                                      {(reviewer.fullname || reviewer.username)
-                                        .substring(0, 2)
-                                        .toUpperCase()}
-                                    </span>
-                                  </div>
-                                  <div className="absolute bottom-full left-1/2 z-20 mb-1 hidden w-max -translate-x-1/2 whitespace-nowrap rounded bg-text-primary px-2 py-1 text-[10px] text-white shadow-sm group-hover:block">
-                                    {reviewer.fullname || reviewer.username}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* No Group */}
-                        {groupedDecisions.no.length > 0 && (
-                          <div className="flex items-center gap-1.5 rounded-xl border border-error/20 bg-error/10 px-2 py-1.5">
-                            <FiXCircle className="h-3.5 w-3.5 text-error" />
-                            <span className="mr-1 text-xs font-medium text-error">
-                              No
-                            </span>
-                            <div className="flex -space-x-1.5">
-                              {groupedDecisions.no.map(({ reviewer }) => (
-                                <div
-                                  key={reviewer.id}
-                                  className="relative group shrink-0"
-                                >
-                                  <div className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-white ring-1 ring-error/20">
-                                    <span className="text-[9px] font-bold leading-none text-error">
-                                      {(reviewer.fullname || reviewer.username)
-                                        .substring(0, 2)
-                                        .toUpperCase()}
-                                    </span>
-                                  </div>
-                                  <div className="absolute bottom-full left-1/2 z-20 mb-1 hidden w-max -translate-x-1/2 whitespace-nowrap rounded bg-text-primary px-2 py-1 text-[10px] text-white shadow-sm group-hover:block">
-                                    {reviewer.fullname || reviewer.username}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Unclear Group */}
-                        {groupedDecisions.unclear.length > 0 && (
-                          <div className="flex items-center gap-1.5 rounded-xl border border-warning/20 bg-warning/10 px-2 py-1.5">
-                            <FiHelpCircle className="h-3.5 w-3.5 text-warning" />
-                            <span className="mr-1 text-xs font-medium text-warning">
-                              Unclear
-                            </span>
-                            <div className="flex -space-x-1.5">
-                              {groupedDecisions.unclear.map(({ reviewer }) => (
-                                <div
-                                  key={reviewer.id}
-                                  className="relative group shrink-0"
-                                >
-                                  <div className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-white ring-1 ring-warning/20">
-                                    <span className="text-[9px] font-bold leading-none text-warning">
-                                      {(reviewer.fullname || reviewer.username)
-                                        .substring(0, 2)
-                                        .toUpperCase()}
-                                    </span>
-                                  </div>
-                                  <div className="absolute bottom-full left-1/2 z-20 mb-1 hidden w-max -translate-x-1/2 whitespace-nowrap rounded bg-text-primary px-2 py-1 text-[10px] text-white shadow-sm group-hover:block">
-                                    {reviewer.fullname || reviewer.username}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Comments List */}
-                      {comments.length > 0 && (
-                        <div className="flex flex-col gap-1.5 pl-1 border-l-2 border-border mt-1">
-                          {comments.map(({ reviewer, decision }) => (
-                            <div
-                              key={reviewer.id}
-                              className="flex items-start gap-2 text-xs"
-                            >
-                              <span className="font-medium text-text-primary whitespace-nowrap mt-0.5">
-                                {reviewer.username}:
-                              </span>
-                              <span className="text-text-secondary italic">
-                                "{decision.comment}"
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+    <div className="flex h-full min-h-0 flex-col bg-white">
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div className="sticky top-0 z-10 border-b border-border bg-white/95 px-4 py-3 backdrop-blur-sm sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
+            <div className="min-w-[180px] flex-1">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h2 className="text-sm font-semibold text-text-primary">Criterion review</h2>
+                <p className="text-xs tabular-nums text-text-secondary"><span className="font-semibold text-text-primary">{counts.resolved} of {counts.total}</span> assessed</p>
+              </div>
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-bg-secondary" role="progressbar" aria-label="Criteria assessed" aria-valuemin={0} aria-valuemax={counts.total} aria-valuenow={counts.resolved}>
+                <div className="h-full rounded-full bg-primary transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${counts.total ? (counts.resolved / counts.total) * 100 : 0}%` }} />
+              </div>
             </div>
-          </>
-        ) : (
-          <div className="space-y-4 pb-4">
-            {criteriaList.map((crit, idx) => {
-              const currentAns = answers[crit.criterionId];
-              const isSelected = !!currentAns;
+            <div className="inline-flex items-center gap-0.5 rounded-lg bg-bg-primary p-1" role="group" aria-label="Filter criteria">
+              {([
+                ["conflicts", `Conflicts${counts.conflicts ? ` · ${counts.conflicts}` : ""}`],
+                ["all", "All criteria"],
+                ["resolved", `Resolved · ${counts.resolved}`],
+              ] as const).map(([value, label]) => (
+                <button key={value} type="button" onClick={() => setFilter(value)} aria-pressed={filter === value}
+                  className={`min-h-9 rounded-md px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${filter === value ? "bg-white text-primary shadow-sm" : "text-text-secondary hover:bg-white/70 hover:text-text-primary"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
-              return (
-                <div
-                  key={crit.criterionId}
-                  onClick={() => onSelectCriterion?.(crit.criterionId)}
-                  className={`cursor-pointer rounded-xl border p-3.5 transition-colors ${
-                    activeCriterionId === crit.criterionId
-                      ? "bg-primary-light/70 border-primary/30"
-                      : "bg-bg-primary border-border hover:border-primary/20"
-                  }`}
-                >
-                  <div className="flex gap-2">
-                    <span className="text-xs font-semibold text-text-secondary mt-0.5">
-                      {idx + 1}.
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-text-primary leading-relaxed mb-3">
-                        {crit.question}
-                      </p>
+        <div className="px-4 pb-5 pt-3 sm:px-6">
+          <div className="space-y-2">
+          {visibleCriteria.map((criterion, index) => {
+            const state = criterionStates.get(criterion.criterionId)!;
+            const myAnswer = answers[criterion.criterionId];
+            const status = state.resolved ? "Resolved" : state.conflict ? "Conflict" : state.agreed ? "Agreed" : "Awaiting review";
+            return (
+              <details key={criterion.criterionId} open={openCriterionIds.has(criterion.criterionId)} className={`group rounded-lg border border-border bg-white transition-colors motion-reduce:transition-none ${activeCriterionId === criterion.criterionId ? "border-primary/35 bg-primary-light/20" : "hover:bg-bg-primary/25"}`}>
+                <summary onClick={(event) => { event.preventDefault(); onSelectCriterion?.(criterion.criterionId); setOpenCriterionIds((current) => { const next = new Set(current); if (next.has(criterion.criterionId)) next.delete(criterion.criterionId); else next.add(criterion.criterionId); return next; }); }} className="flex min-h-[58px] cursor-pointer list-none items-center gap-3 px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/30 sm:px-4 [&::-webkit-details-marker]:hidden">
+                  <span className="w-7 shrink-0 text-xs font-medium tabular-nums text-text-muted">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="min-w-0 flex-1 text-sm font-medium leading-5 text-text-primary">{criterion.question}</span>
+                  <span className={`inline-flex shrink-0 items-center gap-1.5 text-xs font-medium ${status === "Conflict" ? "text-amber-800" : status === "Resolved" ? "text-emerald-800" : "text-text-secondary"}`}>
+                    <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${status === "Conflict" ? "bg-amber-500" : status === "Resolved" ? "bg-emerald-600" : status === "Agreed" ? "bg-text-muted" : "bg-border"}`} />{status}
+                  </span>
+                  <ChevronDown aria-hidden="true" size={16} className="shrink-0 text-text-muted transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none" />
+                </summary>
 
-                      <div className="flex gap-2 mb-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAnswer(crit.criterionId, 0);
-                          }}
-                          disabled={!canEdit}
-                          className={`min-h-11 min-w-0 flex-1 rounded flex items-center justify-center gap-1 px-1 py-1.5 text-[11px] font-medium border transition-colors ${
-                            currentAns?.value === 0
-                              ? "bg-success/10 border-success/40 text-success"
-                              : "bg-surface-white border-border text-text-secondary hover:bg-bg-primary"
-                          } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
-                        >
-                          <FiCheckCircle
-                            className={
-                              currentAns?.value === 0
-                                ? "text-success"
-                                : "text-text-secondary"
-                            }
-                          />
-                          Yes
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAnswer(crit.criterionId, 1);
-                          }}
-                          disabled={!canEdit}
-                          className={`min-h-11 min-w-0 flex-1 rounded flex items-center justify-center gap-1 px-1 py-1.5 text-[11px] font-medium border transition-colors ${
-                            currentAns?.value === 1
-                              ? "bg-error/10 border-error/40 text-error"
-                              : "bg-surface-white border-border text-text-secondary hover:bg-bg-primary"
-                          } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
-                        >
-                          <FiXCircle
-                            className={
-                              currentAns?.value === 1
-                                ? "text-error"
-                                : "text-text-secondary"
-                            }
-                          />
-                          No
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAnswer(crit.criterionId, 2);
-                          }}
-                          disabled={!canEdit}
-                          className={`min-h-11 min-w-0 flex-1 rounded flex items-center justify-center gap-1 px-1 py-1.5 text-[11px] font-medium border transition-colors ${
-                            currentAns?.value === 2
-                              ? "bg-warning/10 border-warning/40 text-warning"
-                              : "bg-surface-white border-border text-text-secondary hover:bg-bg-primary"
-                          } ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}`}
-                        >
-                          <FiHelpCircle
-                            className={
-                              currentAns?.value === 2
-                                ? "text-warning"
-                                : "text-text-secondary"
-                            }
-                          />
-                          Unclear
-                        </button>
-                      </div>
-
-                      {isSelected && (
-                        <div>
-                          <textarea
-                            value={currentAns?.comment || ""}
-                            onChange={(e) =>
-                              handleComment(crit.criterionId, e.target.value)
-                            }
-                            placeholder="Add your reasoning..."
-                            className="w-full resize-none rounded-xl border border-border bg-surface-white px-3 py-2 text-xs outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
-                            rows={2}
-                            onClick={(e) => e.stopPropagation()}
-                            disabled={!canEdit}
-                          />
+                <div className="px-3 pb-4 sm:px-4">
+                  <p className="mb-2 text-xs font-semibold text-text-secondary">Reviewer evidence</p>
+                  <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {state.reviewerItems.map((item) => (
+                      <article key={item.name} className="min-w-0 rounded-md bg-bg-primary/55 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 truncate text-xs font-semibold text-text-primary">{item.name}</p>
+                          <span className={`shrink-0 text-xs font-semibold ${item.value === 0 ? "text-emerald-700" : item.value === 1 ? "text-rose-700" : "text-text-secondary"}`}>{item.value == null ? "No response" : answerLabels[item.value] ?? "Unclear"}</span>
                         </div>
-                      )}
+                        <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-5 text-text-secondary">{item.comment || "No reasoning provided."}</p>
+                      </article>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-border pt-3">
+                    <p className="mb-2 text-xs font-semibold text-text-primary">Your assessment</p>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label={`Your assessment for criterion ${index + 1}`}>
+                      {[0, 1, 2].map((value) => (
+                        <button key={value} type="button" disabled={!canEdit} aria-pressed={myAnswer?.value === value}
+                          onClick={() => answerCriterion(criterion.criterionId, value)}
+                          className={`min-h-9 rounded-md border px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60 ${myAnswer?.value === value ? "border-primary/50 bg-primary-light text-primary" : "border-border bg-white text-text-secondary hover:bg-bg-primary"}`}>
+                          {answerLabels[value]}
+                        </button>
+                      ))}
                     </div>
+                    <textarea value={myAnswer?.comment ?? ""} disabled={!canEdit}
+                      onChange={(event) => setAnswers((current) => ({ ...current, [criterion.criterionId]: { ...current[criterion.criterionId], value: current[criterion.criterionId]?.value ?? 2, comment: event.target.value } }))}
+                      placeholder="Add your reasoning for this criterion…" rows={2}
+                      className="mt-2 min-h-16 w-full resize-y rounded-md border border-border bg-white px-3 py-2 text-sm leading-5 text-text-primary outline-none placeholder:text-text-muted focus:border-primary/50 focus:ring-2 focus:ring-primary/10 disabled:bg-bg-primary" />
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        <h3 className="text-sm font-semibold text-text-primary border-b pb-2 pt-2">
-          Final Resolution
-        </h3>
-
-        <div className="space-y-4 pb-20">
-          <div>
-            <label className="block text-xs font-medium text-text-primary mb-1">
-              Final Decision
-            </label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFinalDecision(1)}
-                className={`flex min-h-11 flex-1 items-center justify-center rounded-xl border px-2 py-2 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 motion-reduce:transition-none ${finalDecision === 1 ? "bg-success/10 border-success/40 text-success" : "bg-surface-white border-border text-text-secondary hover:bg-bg-primary"}`}
-                disabled={!canEdit}
-              >
-                High Quality
-              </button>
-              <button
-                onClick={() => setFinalDecision(0)}
-                className={`flex min-h-11 flex-1 items-center justify-center rounded-xl border px-2 py-2 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 motion-reduce:transition-none ${finalDecision === 0 ? "bg-error/10 border-error/40 text-error" : "bg-surface-white border-border text-text-secondary hover:bg-bg-primary"}`}
-                disabled={!canEdit}
-              >
-                Low Quality
-              </button>
+              </details>
+            );
+          })}
+          {visibleCriteria.length === 0 && (
+            <div className="rounded-lg border border-border bg-white py-8 text-center">
+              <CircleCheck size={22} className="mx-auto text-emerald-700" aria-hidden="true" />
+              <p className="mt-2 text-sm font-medium text-text-primary">{filter === "conflicts" ? "No unresolved conflicts" : filter === "resolved" ? "No resolved criteria yet" : "No criteria available"}</p>
+              <p className="mt-1 text-xs text-text-secondary">{filter === "all" ? "Assessment criteria will appear here when configured." : "Choose another filter to review the remaining criteria."}</p>
             </div>
+          )}
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-text-primary mb-1">
-              Resolution Notes
-            </label>
-            <textarea
-              value={resolutionNotes}
-              onChange={(e) => setResolutionNotes(e.target.value)}
-              rows={3}
-              placeholder="Add reasoning for this resolution..."
-              className="min-h-11 w-full rounded-xl border border-border px-3 py-1.5 text-xs text-text-primary outline-none transition-[border-color,box-shadow] focus:border-primary focus:ring-2 focus:ring-primary/20 motion-reduce:transition-none"
-              disabled={!canEdit}
-            />
-          </div>
+          <details className="mt-4 border-y border-border py-2">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-1 text-sm font-medium text-text-primary outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-primary/30 [&::-webkit-details-marker]:hidden">
+              <span>Assessment notes</span><span className="text-xs font-normal text-text-secondary">Optional context</span>
+            </summary>
+            <label htmlFor="leader-assessment-notes" className="sr-only">Assessment notes</label>
+            <textarea id="leader-assessment-notes" value={notes} onChange={(event) => setNotes(event.target.value)} disabled={!canEdit} rows={2}
+              placeholder="Add notes to accompany your criterion assessments…" className="mt-2 w-full resize-y rounded-md border border-border bg-white px-3 py-2 text-sm leading-5 outline-none placeholder:text-text-muted focus:border-primary/50 focus:ring-2 focus:ring-primary/10 disabled:bg-bg-primary" />
+          </details>
+
+          <details open={isFinalDecisionOpen} onToggle={(event) => setIsFinalDecisionOpen(event.currentTarget.open)} className="group border-b border-border py-3">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-1 outline-none focus-visible:ring-2 focus-visible:ring-primary/30 [&::-webkit-details-marker]:hidden">
+              <span><span className="block text-sm font-semibold text-text-primary">Final paper decision</span><span className="mt-0.5 block text-xs text-text-secondary">Review the criteria, then record the paper outcome.</span></span>
+              <ChevronDown size={17} className="shrink-0 text-text-muted transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
+            </summary>
+            <div className="pt-3">
+              <div className="grid max-w-lg grid-cols-2 gap-2" role="group" aria-label="Final paper quality decision">
+                {[{ value: 1, label: "High quality" }, { value: 0, label: "Low quality" }].map((option) => (
+                  <button key={option.value} type="button" disabled={!canEdit} aria-pressed={finalDecision === option.value} onClick={() => setFinalDecision(option.value)}
+                    className={`min-h-10 rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-60 ${finalDecision === option.value ? "border-primary/50 bg-primary-light text-primary" : "border-border text-text-secondary hover:bg-bg-primary"}`}>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <label className="sr-only" htmlFor="leader-final-decision-notes">Reason for final decision</label>
+              <textarea id="leader-final-decision-notes" value={resolutionNotes} onChange={(event) => setResolutionNotes(event.target.value)} disabled={!canEdit} rows={2}
+                placeholder="Reason for the final paper decision (optional)" className="mt-2 w-full resize-y rounded-md border border-border bg-white px-3 py-2 text-sm leading-5 outline-none placeholder:text-text-muted focus:border-primary/50 focus:ring-2 focus:ring-primary/10 disabled:bg-bg-primary" />
+            </div>
+          </details>
         </div>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 border-t border-border bg-surface-white p-4 shadow-[0_-4px_12px_-6px_rgba(18,35,49,0.16)]">
-        <button
-          onClick={handleResolve}
-          disabled={isResolving || finalDecision === null || !canEdit}
-          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isResolving ? "Submitting..." : "Submit"}
-        </button>
-      </div>
+      <footer className="sticky bottom-0 z-20 flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-white px-4 py-2.5 sm:px-6">
+        <div>
+          <p className="text-xs text-text-secondary"><span className="font-semibold tabular-nums text-text-primary">{counts.resolved} of {counts.total}</span> criteria assessed</p>
+          <p className="mt-0.5 text-[11px] text-text-muted">{finalDecision === null ? "Choose a final paper decision to submit." : "Final decision ready to submit."}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" disabled={!canEdit || isResolving || !onSaveDraft || (decisionItems.length === 0 && !notes.trim())} onClick={() => onSaveDraft?.(notes, decisionItems)}
+            className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-text-primary hover:bg-bg-primary disabled:cursor-not-allowed disabled:opacity-50">
+            <Save size={15} aria-hidden="true" /> Save draft
+          </button>
+          <button type="button" disabled={!canEdit || isResolving || finalDecision === null} onClick={handleResolve}
+            className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50">
+            <Check size={15} aria-hidden="true" /> {isResolving ? "Saving…" : "Submit resolution"}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,6 +1,4 @@
 import type { QAReviewerProgressResponse } from "../../../../types/qualityAssessment";
-import Card from "../../../../components/ui/Card";
-import { CheckCircle2, Clock } from "lucide-react";
 
 interface ReviewerProgressPanelProps {
   reviewerProgresses: QAReviewerProgressResponse[];
@@ -12,54 +10,59 @@ export function ReviewerProgressPanel({
   if (!memberProgresses || memberProgresses.length === 0) return null;
 
   return (
-    <Card className="overflow-hidden rounded-xl border border-border bg-surface-white shadow-none">
-      <div className="border-b border-border bg-surface-white px-4 py-4 sm:px-5">
-        <h2 className="text-base font-semibold text-text-primary">
-          Reviewer Progress
+    <section
+      aria-labelledby="reviewer-progress-title"
+      className="shrink-0 overflow-hidden rounded-xl border border-border bg-surface-white"
+    >
+      <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-4 py-3 sm:px-5">
+        <h2 id="reviewer-progress-title" className="text-sm font-semibold text-text-primary">
+          Reviewer progress
         </h2>
-        <p className="mt-1 text-sm text-text-secondary">
-          Track individual completion rates
-        </p>
-      </div>
-      <div className="space-y-5 p-4 sm:p-5">
-        {memberProgresses.map((progress) => (
-          <div key={progress.reviewerId} className="flex flex-col gap-3">
-            <div className="flex items-center justify-between text-sm">
-              <span
-                className="font-medium text-text-primary truncate mr-2"
-                title={progress.reviewerName || "Unknown Reviewer"}
-              >
-                {progress.reviewerName || "Unknown Reviewer"}
-              </span>
-              <span className="whitespace-nowrap rounded-xl border border-accent/30 bg-primary-light px-2.5 py-1 text-xs font-semibold text-accent">
-                {progress.completionPercentage.toFixed(0)}%
-              </span>
-            </div>
+        <p className="text-xs text-text-secondary">Assessment completion by reviewer</p>
+      </header>
 
-            <div className="h-2 w-full overflow-hidden rounded-full bg-bg-secondary">
+      <div className="divide-y divide-border">
+        {memberProgresses.map((progress) => (
+          <div
+            key={progress.reviewerId}
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2.5 px-4 py-3 sm:px-5 md:grid-cols-[minmax(0,1fr)_minmax(150px,1.2fr)_minmax(0,1fr)_48px] md:gap-5"
+          >
+            <span
+              className="min-w-0 truncate text-sm font-medium text-text-primary"
+              title={progress.reviewerName || "Unknown Reviewer"}
+            >
+              {progress.reviewerName || "Unknown Reviewer"}
+            </span>
+
+            <div
+              role="progressbar"
+              aria-label={`${progress.reviewerName || "Reviewer"} assessment progress`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progress.completionPercentage)}
+              className="col-span-2 h-1.5 w-full overflow-hidden rounded-full bg-bg-secondary md:col-span-1 md:col-start-2 md:row-start-1"
+            >
               <div
                 className="h-full rounded-full bg-primary transition-[width] duration-200 motion-reduce:transition-none"
-                style={{ width: `${progress.completionPercentage}%` }}
+                style={{ width: `${Math.min(100, Math.max(0, progress.completionPercentage))}%` }}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="flex items-center gap-1.5 rounded-xl bg-success/10 p-2 text-success">
-                <CheckCircle2 size={14} className="text-success" />
-                <span className="font-medium">
-                  {progress.completedPapers} done
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 p-2 bg-primary-light text-accent rounded-xl">
-                <Clock size={14} className="text-accent" />
-                <span className="font-medium">
-                  {progress.inProgressPapers + progress.notStartedPapers} max
-                </span>
-              </div>
+            <div className="col-span-2 text-xs text-text-secondary md:col-span-1 md:col-start-3 md:row-start-1">
+              <span className="font-medium tabular-nums text-success">{progress.completedPapers}</span> completed
+              <span aria-hidden="true" className="mx-2 text-border">·</span>
+              <span className="font-medium tabular-nums text-text-primary">
+                {progress.inProgressPapers + progress.notStartedPapers}
+              </span>{" "}
+              remaining
             </div>
+
+            <span className="col-start-2 row-start-1 text-sm font-semibold tabular-nums text-text-primary md:col-start-4 md:text-right">
+              {progress.completionPercentage.toFixed(0)}%
+            </span>
           </div>
         ))}
       </div>
-    </Card>
+    </section>
   );
 }
