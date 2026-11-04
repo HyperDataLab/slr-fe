@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
 import ClientWorkspaceSidebar from "../components/layout/ClientWorkspaceSidebar";
@@ -9,6 +9,7 @@ import AdminAccessGuard from "../components/auth/AdminAccessGuard";
 import SectionGuard from "../components/auth/SectionGuard";
 import SignalRConnectionManager from "../components/SignalRConnectionManager";
 import { ClientWorkspaceSidebarContext } from "../contexts/ClientWorkspaceSidebarContext";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 export default function MainLayout() {
   const { pathname } = useLocation();
@@ -25,10 +26,11 @@ export default function MainLayout() {
   const isPrismaReportWorkspace = /\/projects\/[^/]+\/(?:processes\/[^/]+\/)?prisma-report(?:\/|$)/.test(pathname);
   const isChecklistEditorWorkspace = /\/projects\/[^/]+\/checklists\/[^/]+(?:\/|$)/.test(pathname);
   const isProjectsRoute = pathname === "/projects" || pathname.startsWith("/projects/");
+  const isProjectListRoute = pathname === "/projects";
   const isViewportWorkspace = isScreeningWorkspace || isFullTextScreeningWorkspace || isChecklistEditorWorkspace || isQualityAssessmentWorkspace;
-  const showHeader = !isScreeningWorkspace && !isFullTextScreeningWorkspace && !isReviewProcessDashboard &&
+  const showHeader = isProjectListRoute || (!isScreeningWorkspace && !isFullTextScreeningWorkspace && !isReviewProcessDashboard &&
     !isDataExtractionWorkspace && !isQualityAssessmentWorkspace &&
-    !isSynthesisWorkspace && !isPrismaReportWorkspace && !isChecklistEditorWorkspace && !isProjectsRoute;
+    !isSynthesisWorkspace && !isPrismaReportWorkspace && !isChecklistEditorWorkspace && !isProjectsRoute);
   const showClientSidebar = isAuthenticated && (
     showHeader || isProjectsRoute || isReviewProcessDashboard || isScreeningWorkspace || isFullTextScreeningWorkspace ||
     isDataExtractionWorkspace || isQualityAssessmentWorkspace
@@ -58,7 +60,20 @@ export default function MainLayout() {
           <AdminAccessGuard />
           <SectionGuard section="client">
             <ClientWorkspaceSidebarContext.Provider value={() => setIsMobileSidebarOpen(true)}>
-              <Outlet />
+              <Suspense
+                fallback={
+                  <div className="flex min-h-48 flex-1 items-center justify-center" role="status" aria-label="Loading page">
+                    <LoadingSpinner size="md" />
+                  </div>
+                }
+              >
+                <div
+                  key={pathname}
+                  className={`route-content-enter ${isViewportWorkspace ? "h-full min-h-0" : ""}`}
+                >
+                  <Outlet />
+                </div>
+              </Suspense>
             </ClientWorkspaceSidebarContext.Provider>
           </SectionGuard>
         </main>

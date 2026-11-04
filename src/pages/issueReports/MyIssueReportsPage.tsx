@@ -277,10 +277,11 @@ export default function MyIssueReportsPage() {
 
       {activeTab === "new" ? (
         <section
+          key="new-report-panel"
           id="new-report-panel"
           role="tabpanel"
           aria-labelledby="new-report-tab"
-          className="rounded-xl border border-border bg-white p-5 sm:p-6"
+          className="route-content-enter rounded-xl border border-border bg-white p-5 sm:p-6"
         >
           <div className="mb-6 flex items-start gap-3.5">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
@@ -385,7 +386,7 @@ export default function MyIssueReportsPage() {
           </form>
         </section>
       ) : (
-        <section id="my-reports-panel" role="tabpanel" aria-labelledby="my-reports-tab" className="space-y-4">
+        <section key="my-reports-panel" id="my-reports-panel" role="tabpanel" aria-labelledby="my-reports-tab" className="route-content-enter space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-3 px-1">
             <div>
               <h2 className="text-lg font-semibold text-text-primary">Your reports</h2>
