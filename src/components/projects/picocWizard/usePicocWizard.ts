@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSelector } from "react-redux";
 import { picocWizardStateService } from "../../../services/picocWizardStateService";
 import type { PicocWizardDraft, PicocWizardRecord } from "./types";
+import { projectQueryKeys } from "../../../constants/projectQueryKeys";
+import type { RootState } from "../../../redux/store";
 
 export type SaveStatus = "idle" | "saving" | "saved" | "error" | "conflict";
 export type SaveResult = "saved" | "error" | "conflict" | "skipped";
@@ -18,6 +22,12 @@ export function draftOf(record: PicocWizardRecord): PicocWizardDraft {
  * autosave so another member's changes are never silently overwritten.
  */
 export function usePicocWizard(projectId: string, canEdit: boolean) {
+  const queryClient = useQueryClient();
+  const currentUserId = useSelector((state: RootState) => state.auth.user?.id ?? "anonymous");
+  const stateKey = useMemo(
+    () => projectQueryKeys.picocWizardState(projectId, currentUserId),
+    [projectId, currentUserId],
+  );
   const [record, setRecord] = useState<PicocWizardRecord | null>(null);
   const [draft, setDraft] = useState<PicocWizardDraft | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -31,10 +41,14 @@ export function usePicocWizard(projectId: string, canEdit: boolean) {
   const timerRef = useRef<number | undefined>(undefined);
   const savedThisSessionRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (forceRefresh = false) => {
     setLoadError(null);
     try {
-      const loaded = await picocWizardStateService.getState(projectId);
+      const loaded = await queryClient.fetchQuery({
+        queryKey: stateKey,
+        queryFn: () => picocWizardStateService.getState(projectId),
+        staleTime: forceRefresh ? 0 : 30_000,
+      });
       revisionRef.current = loaded.revision;
       conflictRef.current = false;
       dirtyRef.current = false;
@@ -45,7 +59,7 @@ export function usePicocWizard(projectId: string, canEdit: boolean) {
     } catch {
       setLoadError("Could not load the PICOC draft. Check your connection and try again.");
     }
-  }, [projectId]);
+  }, [projectId, queryClient, stateKey]);
 
   useEffect(() => {
     void load();
@@ -61,6 +75,7 @@ export function usePicocWizard(projectId: string, canEdit: boolean) {
     let result: SaveResult = "saved";
     try {
       const saved = await picocWizardStateService.saveState(projectId, revisionRef.current, draftRef.current);
+      queryClient.setQueryData(stateKey, saved);
       revisionRef.current = saved.revision;
       setRecord(saved);
       setSaveStatus("saved");
@@ -84,7 +99,7 @@ export function usePicocWizard(projectId: string, canEdit: boolean) {
       timerRef.current = window.setTimeout(() => void saveNow(), AUTOSAVE_DELAY_MS);
     }
     return result;
-  }, [canEdit, projectId]);
+  }, [canEdit, projectId, queryClient, stateKey]);
 
   const update = useCallback((change: (current: PicocWizardDraft) => PicocWizardDraft) => {
     if (!canEdit || !draftRef.current) return;
@@ -100,9 +115,14 @@ export function usePicocWizard(projectId: string, canEdit: boolean) {
     await saveNow();
     if (conflictRef.current || dirtyRef.current) return false;
     const checked = await picocWizardStateService.semanticCheck(projectId, revisionRef.current);
-    if (checked.revision === revisionRef.current) setRecord(checked);
+    if (checked.revision === revisionRef.current) {
+      queryClient.setQueryData(stateKey, checked);
+      setRecord(checked);
+    }
     return true;
-  }, [projectId, saveNow]);
+  }, [projectId, queryClient, saveNow, stateKey]);
 
-  return { record, draft, loadError, saveStatus, update, saveNow, reload: load, runSemanticCheck };
+  const reload = useCallback(() => load(true), [load]);
+
+  return { record, draft, loadError, saveStatus, update, saveNow, reload, runSemanticCheck };
 }

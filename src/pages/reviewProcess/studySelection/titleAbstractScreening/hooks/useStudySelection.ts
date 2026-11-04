@@ -142,13 +142,14 @@ export function useStudySelection(
 
   // ---- React Query: Fetch Papers with Decisions (paginated) ----
   const papersQuery = useQuery({
-    queryKey: QUERY_KEYS.studySelection.papers(
+    queryKey: [...QUERY_KEYS.studySelection.papers(
       screeningProcessId ?? "",
       apiParams as unknown as Record<string, unknown>,
-    ),
+    ), currentUser?.id ?? "anonymous"],
     queryFn: () => studySelectionService.getAssignedPapers(screeningProcessId!, apiParams),
     enabled: !!screeningProcessId,
     staleTime: 60_000,
+    refetchOnWindowFocus: true,
     placeholderData: keepPreviousData,
   });
 
@@ -158,6 +159,7 @@ export function useStudySelection(
     queryFn: () => studySelectionService.getStatistics(screeningProcessId!, "TitleAbstract"),
     enabled: !!screeningProcessId,
     staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
 
   const ftStatsQuery = useQuery({
@@ -165,6 +167,7 @@ export function useStudySelection(
     queryFn: () => studySelectionService.getStatistics(screeningProcessId!, "FullText"),
     enabled: !!screeningProcessId,
     staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
 
   // Adapt API response → UI ScreeningPaper[]
@@ -215,14 +218,15 @@ export function useStudySelection(
 
   // ---- React Query: Fetch Paper Details ----
   const paperDetailsQuery = useQuery({
-    queryKey: QUERY_KEYS.studySelection.paperDetails(
+    queryKey: [...QUERY_KEYS.studySelection.paperDetails(
       screeningProcessId ?? "",
       resolvedSelectedId ?? "",
       phase,
-    ),
+    ), currentUser?.id ?? "anonymous"],
     queryFn: () => studySelectionService.getPaperDetails(screeningProcessId!, resolvedSelectedId!, phase),
     enabled: !!screeningProcessId && !!resolvedSelectedId && (isLeader || !!routePaperId),
     staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   // ---- Selected Paper ----

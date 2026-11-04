@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSelector } from "react-redux";
 import { isAxiosError } from "axios";
 import { FiAlertTriangle, FiCopy, FiKey, FiPlus, FiSave, FiShield, FiToggleLeft, FiToggleRight, FiX } from "react-icons/fi";
 import api from "../../config/axios";
 import Input from "../../components/ui/Input";
 import Modal from "../../components/ui/Modal";
 import Button from "../../components/ui/Button";
+import type { RootState } from "../../redux/store";
 
 type Scope = "repository:read" | "repository:write" | "project:read" | "project:write" | "analysis:read" | "analysis:write" | "artifacts:download";
 type Client = {
@@ -62,8 +65,36 @@ function ProjectPermissions({ projects, value, onChange }: { projects: Project[]
 }
 
 export default function RepositoryApiClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const queryClient = useQueryClient();
+  const userId = useSelector((state: RootState) => state.auth.user?.id ?? "anonymous");
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+  const clientsKey = ["admin", "repository-api-clients", userId] as const;
+  const clientsQuery = useQuery({
+    queryKey: clientsKey,
+    queryFn: async () => {
+      const [clientsResponse, projectsResponse] = await Promise.all([
+        api.get<ApiEnvelope<Client[]>>("/admin/repository-api-clients"),
+        api.get<ApiEnvelope<Project[]>>("/admin/repository-api-clients/projects"),
+      ]);
+      // Keep the query cache limited to displayable metadata, even if the API
+      // accidentally adds a one-time credential field to its list response.
+      const clients = clientsResponse.data.data.map((client) => ({
+        clientId: client.clientId,
+        displayName: client.displayName,
+        keyPrefix: client.keyPrefix,
+        scopes: client.scopes,
+        allowedProjectIds: client.allowedProjectIds,
+        isActive: client.isActive,
+        createdAt: client.createdAt,
+        updatedAt: client.updatedAt,
+      }));
+      return { clients, projects: projectsResponse.data.data };
+    },
+    enabled: isAuthenticated,
+    staleTime: 60_000,
+  });
+  const clients = clientsQuery.data?.clients ?? [];
+  const projects = clientsQuery.data?.projects ?? [];
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [rotateTarget, setRotateTarget] = useState<Client | null>(null);
@@ -73,16 +104,9 @@ export default function RepositoryApiClientsPage() {
   const [notice, setNotice] = useState("");
   const keyPanelRef = useRef<HTMLElement>(null);
 
-  const reload = useCallback(async () => {
-    const [clientsResponse, projectsResponse] = await Promise.all([
-      api.get<ApiEnvelope<Client[]>>("/admin/repository-api-clients"),
-      api.get<ApiEnvelope<Project[]>>("/admin/repository-api-clients/projects"),
-    ]);
-    setClients(clientsResponse.data.data);
-    setProjects(projectsResponse.data.data);
-  }, []);
-
-  useEffect(() => { void reload().catch((reason) => setError(errorText(reason))); }, [reload]);
+  const reload = async () => {
+    await queryClient.invalidateQueries({ queryKey: clientsKey });
+  };
   useEffect(() => {
     if (revealedKey) keyPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [revealedKey]);
@@ -157,7 +181,7 @@ export default function RepositoryApiClientsPage() {
         </div>
       </header>
 
-      {error && <div role="alert" className="rounded-xl border border-error/20 bg-error/5 p-3 text-sm text-error">{error}</div>}
+      {(error || clientsQuery.error) && <div role="alert" className="rounded-xl border border-error/20 bg-error/5 p-3 text-sm text-error">{error || errorText(clientsQuery.error)}</div>}
       {notice && <div role="status" className="rounded-xl border border-success/20 bg-success/5 p-3 text-sm text-success">{notice}</div>}
 
       <Modal

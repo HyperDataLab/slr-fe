@@ -6,7 +6,7 @@ interface ProjectSetupSectionProps {
   projectTitle?: string;
   projectDomain?: string;
   isProjectSetupReady: boolean;
-  onSetupSaved: () => void;
+  onSetupSaved?: () => void;
   embedded?: boolean;
   hideEditButton?: boolean;
   hidePicoc?: boolean;

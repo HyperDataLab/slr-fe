@@ -66,8 +66,9 @@ export default function ReviewerAiAgentPanel({
   const [agentConfirmation, setAgentConfirmation] = useState<AgentConfirmation | null>(null);
   const [tokens, setTokens] = useState<Record<string, string>>({});
   const [taskErrors, setTaskErrors] = useState<Record<string, string>>({});
-  const agentsKey = ["reviewer-ai-agents", projectId];
-  const tasksKey = ["reviewer-ai-agent-tasks", projectId, paper?.id];
+  const viewerScope = currentUserId ?? "anonymous";
+  const agentsKey = ["reviewer-ai-agents", projectId, viewerScope, isReviewer ? "reviewer" : "owner"];
+  const tasksKey = ["reviewer-ai-agent-tasks", projectId, viewerScope, isReviewer ? "reviewer" : "owner", paper?.id];
   const taskStateKey = (agentId: string, paperId = paper?.id, taskStage = stage) => `${paperId ?? ""}:${taskStage}:${agentId}`;
 
   const agentsQuery = useQuery({
@@ -93,6 +94,8 @@ export default function ReviewerAiAgentPanel({
     },
     enabled: Boolean(projectId && paper?.id && (isReviewer || isOwner)),
     refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   const connectMutation = useMutation({

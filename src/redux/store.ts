@@ -31,6 +31,20 @@ const authTransform = createTransform(
   { whitelist: ["auth"] }
 );
 
+// Membership is authorization-derived server state. Keep it in Redux while the
+// app is open for existing consumers, but never restore a stale role from disk.
+const projectTransform = createTransform(
+  (inboundState: { currentProjectMember?: unknown }) => ({
+    ...inboundState,
+    currentProjectMember: null,
+  }),
+  (outboundState: { currentProjectMember?: unknown }) => ({
+    ...outboundState,
+    currentProjectMember: null,
+  }),
+  { whitelist: ["project"] },
+);
+
 /**
  * Migration: Handle state transitions between versions.
  * This is useful for clearing stale data after significant architecture changes.
@@ -69,7 +83,7 @@ const persistConfig: PersistConfig<ReturnType<typeof appReducer>> = {
   version: 1,
   storage,
   whitelist: ["auth", "ui", "project", "documentEditor"],
-  transforms: [authTransform],
+  transforms: [authTransform, projectTransform],
   migrate: createMigrate(migrations, { debug: false }),
 };
 

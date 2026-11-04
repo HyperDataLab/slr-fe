@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSelector } from "react-redux";
 import { toastSuccess, toastError } from "../../../../utils/toast";
 import { qualityAssessmentService } from "../../../../services/qualityAssessmentService";
 import { QUERY_KEYS } from "../../../../constants/queryKeys";
@@ -15,9 +16,21 @@ import type {
   QualityAssessmentChecklist,
   QualityAssessmentCriterion
 } from "../../../../types/qualityAssessment";
+import type { RootState } from "../../../../redux/store";
 
 export function useQualityAssessment(id?: string, isLeader?: boolean, params?: QADashboardParams) {
   const queryClient = useQueryClient();
+  const currentUserId = useSelector((state: RootState) => state.auth.user?.id ?? "anonymous");
+  const assignedPapersKey = [...QUERY_KEYS.qualityAssessment.myAssignedPapers(id ?? ""), currentUserId] as const;
+
+  const invalidateAssessmentData = async () => {
+    if (!id) return;
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.process(id) }),
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.papers(id) }),
+      queryClient.invalidateQueries({ queryKey: assignedPapersKey }),
+    ]);
+  };
 
   // -- Data Fetching --
   const processQuery = useQuery({
@@ -27,10 +40,12 @@ export function useQualityAssessment(id?: string, isLeader?: boolean, params?: Q
   });
 
   const assignedPapersQuery = useQuery({
-    queryKey: [...QUERY_KEYS.qualityAssessment.myAssignedPapers(id ?? ""), params],
+    queryKey: [...assignedPapersKey, params],
     queryFn: () => qualityAssessmentService.getMyAssignedPapers(id ?? "", params),
-    enabled: !!id && isLeader === false, // Wait for the authoritative project role.
-    refetchInterval: isLeader === false ? 10000 : false,
+    enabled: !!id && currentUserId !== "anonymous" && isLeader === false, // Wait for authoritative auth and project role.
+    staleTime: 15_000,
+    refetchInterval: isLeader === false ? 15_000 : false,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
 
@@ -39,7 +54,9 @@ export function useQualityAssessment(id?: string, isLeader?: boolean, params?: Q
     queryFn: () => qualityAssessmentService.getPapers(id!, params),
     enabled: !!id && isLeader === true,
     // Agent/MCP submissions happen outside this browser tab. Keep the Leader queue in sync.
-    refetchInterval: isLeader === true ? 10000 : false,
+    staleTime: 15_000,
+    refetchInterval: isLeader === true ? 15_000 : false,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
 
@@ -68,7 +85,7 @@ export function useQualityAssessment(id?: string, isLeader?: boolean, params?: Q
     mutationFn: (data: QualityAssessmentAssignmentRequest) => qualityAssessmentService.assignReviewers(data),
     onSuccess: () => {
       toastSuccess("Members assigned successfully");
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.myAssignedPapers(id ?? "") });
+      queryClient.invalidateQueries({ queryKey: assignedPapersKey });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.papers(id ?? "") });
     },
     onError: (error) => {
@@ -91,7 +108,7 @@ export function useQualityAssessment(id?: string, isLeader?: boolean, params?: Q
     mutationFn: (vars: CreateQualityAssessmentDecisionRequest) =>
       qualityAssessmentService.submitDecisions(vars),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.myAssignedPapers(id ?? "") });
+      queryClient.invalidateQueries({ queryKey: assignedPapersKey });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.papers(id ?? "") });
       toastSuccess("Decisions saved successfully");
     },
@@ -104,7 +121,7 @@ export function useQualityAssessment(id?: string, isLeader?: boolean, params?: Q
     mutationFn: (vars: UpdateQualityAssessmentDecisionRequest) =>
       qualityAssessmentService.updateDecisions(vars),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.myAssignedPapers(id ?? "") });
+      queryClient.invalidateQueries({ queryKey: assignedPapersKey });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.papers(id ?? "") });
       toastSuccess("Decisions updated successfully");
     },
@@ -117,7 +134,7 @@ export function useQualityAssessment(id?: string, isLeader?: boolean, params?: Q
     mutationFn: (data: QualityAssessmentResolutionRequest) =>
       qualityAssessmentService.submitResolution(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.myAssignedPapers(id ?? "") });
+      queryClient.invalidateQueries({ queryKey: assignedPapersKey });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.papers(id ?? "") });
       toastSuccess("Resolution submitted successfully");
     },
@@ -130,7 +147,7 @@ export function useQualityAssessment(id?: string, isLeader?: boolean, params?: Q
     mutationFn: (data: UpdateQualityAssessmentResolutionRequest) =>
       qualityAssessmentService.updateResolution(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.myAssignedPapers(id ?? "") });
+      queryClient.invalidateQueries({ queryKey: assignedPapersKey });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.papers(id ?? "") });
       toastSuccess("Resolution updated successfully");
     },
@@ -144,7 +161,7 @@ export function useQualityAssessment(id?: string, isLeader?: boolean, params?: Q
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.process(id ?? "") });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.papers(id ?? "") });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qualityAssessment.myAssignedPapers(id ?? "") });
+      queryClient.invalidateQueries({ queryKey: assignedPapersKey });
       toastSuccess(
         response.data?.phaseReopened
           ? "Paper reopened and QA phase returned to In Progress"
@@ -158,13 +175,19 @@ export function useQualityAssessment(id?: string, isLeader?: boolean, params?: Q
 
   const startProcessMutation = useMutation({
     mutationFn: () => qualityAssessmentService.start(id!),
-    onSuccess: () => toastSuccess("Quality Assessment started"),
+    onSuccess: async () => {
+      await invalidateAssessmentData();
+      toastSuccess("Quality Assessment started");
+    },
     onError: (error) => toastError(getErrorMessage(error, "Failed to start Quality Assessment")),
   });
 
   const completeProcessMutation = useMutation({
     mutationFn: () => qualityAssessmentService.complete(id!),
-    onSuccess: () => toastSuccess("Quality Assessment completed"),
+    onSuccess: async () => {
+      await invalidateAssessmentData();
+      toastSuccess("Quality Assessment completed");
+    },
     onError: (error) => toastError(getErrorMessage(error, "Failed to complete Quality Assessment")),
   });
 

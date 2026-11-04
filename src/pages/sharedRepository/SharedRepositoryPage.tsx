@@ -1,6 +1,7 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RootState } from "../../redux/store";
 import { FiBookOpen, FiDownload, FiRefreshCw, FiSearch } from "react-icons/fi";
 import api from "../../config/axios";
@@ -24,96 +25,121 @@ type Work = {
   availability: { hasPdf?: boolean; hasFullText?: boolean; hasAnalysis?: boolean; currentPdfArtifactId?: string; currentFullTextArtifactId?: string };
 };
 type Envelope<T> = { isSuccess: boolean; data: T; errors?: Array<{ message?: string }> | null };
-type TaxonomyState = Record<TaxonomyLevel, Taxon[]>;
-const emptyTaxonomy: TaxonomyState = { domain: [], field: [], subfield: [], topic: [] };
 const levels: TaxonomyLevel[] = ["domain", "field", "subfield", "topic"];
 const labels: Record<TaxonomyLevel, string> = { domain: "Domain", field: "Field", subfield: "Subfield", topic: "Topic" };
+const repositoryKeys = {
+  works: () => ["shared-repository", "works"] as const,
+  workList: (filters: { q: string; classification: "all" | "classified" | "unclassified"; domainId: string; fieldId: string; subfieldId: string; topicId: string }) =>
+    ["shared-repository", "works", { limit: 50, openAccessOnly: true, ...filters }] as const,
+  taxonomy: (level: TaxonomyLevel, parentId?: string) => ["shared-repository", "taxonomy", level, parentId ?? "root"] as const,
+};
+
+async function fetchTaxonomy(level: TaxonomyLevel, parentId?: string, signal?: AbortSignal): Promise<Taxon[]> {
+  const response = await api.get<Envelope<{ items: Taxon[] }>>("/repository/taxonomy", {
+    params: { level, ...(parentId ? { parentId } : {}), limit: 100 },
+    signal,
+  });
+  return response.data.data.items || [];
+}
+
+type WorkFilters = { q: string; classification: "all" | "classified" | "unclassified"; domainId: string; fieldId: string; subfieldId: string; topicId: string };
+async function fetchWorks(filters: WorkFilters, cursor?: string, signal?: AbortSignal): Promise<{ items: Work[]; nextCursor: string | null }> {
+  const params: Record<string, string | number | boolean> = { limit: 50, openAccessOnly: true, ...(filters.q ? { q: filters.q } : {}), ...(cursor ? { cursor } : {}) };
+  if (filters.classification !== "all") params.hasClassification = filters.classification === "classified";
+  for (const level of levels) {
+    const id = filters[`${level}Id` as "domainId" | "fieldId" | "subfieldId" | "topicId"];
+    if (id) params[`${level}Id`] = id;
+  }
+  const response = await api.get<Envelope<{ items: Work[]; page: { nextCursor: string | null } }>>("/repository/works", { params, signal });
+  return { items: response.data.data.items || [], nextCursor: response.data.data.page?.nextCursor || null };
+}
 
 function SharedRepositoryPage() {
   const navigate = useNavigate();
-  const [works, setWorks] = useState<Work[]>([]);
-  const [taxonomy, setTaxonomy] = useState<TaxonomyState>(emptyTaxonomy);
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<Record<TaxonomyLevel, string>>({ domain: "", field: "", subfield: "", topic: "" });
   const [assignment, setAssignment] = useState<Record<TaxonomyLevel, string>>({ domain: "", field: "", subfield: "", topic: "" });
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [classificationFilter, setClassificationFilter] = useState<"all" | "classified" | "unclassified">("all");
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedWork, setSelectedWork] = useState<string | null>(null);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const isGlobalAdmin = useSelector((state: RootState) => state.auth.user?.role === "Admin");
-
-  const loadTaxonomy = useCallback(async (level: TaxonomyLevel, parentId?: string) => {
-    const response = await api.get<Envelope<{ items: Taxon[] }>>("/repository/taxonomy", { params: { level, ...(parentId ? { parentId } : {}), limit: 100 } });
-    return response.data.data.items || [];
-  }, []);
-
-  const loadWorks = useCallback(async (cursor?: string, append = false) => {
-    if (!append) setLoading(true);
-    else setLoadingMore(true);
-    try {
-      const params: Record<string, string | number | boolean> = { limit: 50, openAccessOnly: true, ...(query.trim() ? { q: query.trim() } : {}), ...(cursor ? { cursor } : {}) };
-      if (classificationFilter !== "all") params.hasClassification = classificationFilter === "classified";
-      for (const level of levels) if (filters[level]) params[`${level}Id`] = filters[level];
-      const response = await api.get<Envelope<{ items: Work[]; page: { nextCursor: string | null } }>>("/repository/works", { params });
-      setWorks((current) => append ? [...current, ...(response.data.data.items || [])] : (response.data.data.items || []));
-      setNextCursor(response.data.data.page?.nextCursor || null);
-    } catch (error) { toastError("Could not load the paper library", getErrorMessage(error, "Please try again.")); }
-    finally { setLoading(false); setLoadingMore(false); }
-  }, [classificationFilter, filters, query]);
-
   useEffect(() => {
-    loadTaxonomy("domain")
-      .then((items) => setTaxonomy((current) => ({ ...current, domain: items })))
-      .catch((error) => toastError("Could not load OpenAlex taxonomy", getErrorMessage(error, "Please refresh the page.")));
-  }, [loadTaxonomy]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => { void loadWorks(); }, 250);
+    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
     return () => window.clearTimeout(timer);
-  }, [loadWorks]);
+  }, [query]);
 
-  const updateLevel = async (stateSetter: typeof setFilters, level: TaxonomyLevel, id: string) => {
+  const workFilters = useMemo<WorkFilters>(() => ({
+    q: debouncedQuery,
+    classification: classificationFilter,
+    domainId: filters.domain,
+    fieldId: filters.field,
+    subfieldId: filters.subfield,
+    topicId: filters.topic,
+  }), [classificationFilter, debouncedQuery, filters]);
+  const worksQuery = useInfiniteQuery({
+    queryKey: repositoryKeys.workList(workFilters),
+    queryFn: ({ pageParam, signal }) => fetchWorks(workFilters, pageParam, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    placeholderData: keepPreviousData,
+  });
+  const works = worksQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const hasNextPage = Boolean(worksQuery.hasNextPage);
+
+  const taxonomyQueries = {
+    domain: useQuery({ queryKey: repositoryKeys.taxonomy("domain"), queryFn: ({ signal }) => fetchTaxonomy("domain", undefined, signal), staleTime: 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000 }),
+    field: useQuery({ queryKey: repositoryKeys.taxonomy("field", filters.domain), queryFn: ({ signal }) => fetchTaxonomy("field", filters.domain, signal), enabled: Boolean(filters.domain), staleTime: 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000 }),
+    subfield: useQuery({ queryKey: repositoryKeys.taxonomy("subfield", filters.field), queryFn: ({ signal }) => fetchTaxonomy("subfield", filters.field, signal), enabled: Boolean(filters.field), staleTime: 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000 }),
+    topic: useQuery({ queryKey: repositoryKeys.taxonomy("topic", filters.subfield), queryFn: ({ signal }) => fetchTaxonomy("topic", filters.subfield, signal), enabled: Boolean(filters.subfield), staleTime: 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000 }),
+  };
+  const assignmentTaxonomyQueries = {
+    domain: taxonomyQueries.domain,
+    field: useQuery({ queryKey: repositoryKeys.taxonomy("field", assignment.domain), queryFn: ({ signal }) => fetchTaxonomy("field", assignment.domain, signal), enabled: Boolean(assignment.domain), staleTime: 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000 }),
+    subfield: useQuery({ queryKey: repositoryKeys.taxonomy("subfield", assignment.field), queryFn: ({ signal }) => fetchTaxonomy("subfield", assignment.field, signal), enabled: Boolean(assignment.field), staleTime: 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000 }),
+    topic: useQuery({ queryKey: repositoryKeys.taxonomy("topic", assignment.subfield), queryFn: ({ signal }) => fetchTaxonomy("topic", assignment.subfield, signal), enabled: Boolean(assignment.subfield), staleTime: 60 * 60 * 1000, gcTime: 24 * 60 * 60 * 1000 }),
+  };
+  useEffect(() => {
+    if (worksQuery.isError) toastError("Could not load the paper library", getErrorMessage(worksQuery.error, "Please try again."));
+  }, [worksQuery.error, worksQuery.isError]);
+  useEffect(() => {
+    const failed = Object.values(taxonomyQueries).find((item) => item.isError);
+    if (failed) toastError("Could not load OpenAlex taxonomy", getErrorMessage(failed.error, "Please refresh the page."));
+  }, [taxonomyQueries.domain.error, taxonomyQueries.field.error, taxonomyQueries.subfield.error, taxonomyQueries.topic.error]);
+
+  const updateLevel = (stateSetter: typeof setFilters, level: TaxonomyLevel, id: string) => {
     const index = levels.indexOf(level);
     stateSetter((current) => ({ ...current, [level]: id, ...Object.fromEntries(levels.slice(index + 1).map((child) => [child, ""])) }));
-    setTaxonomy((current) => ({ ...current, ...Object.fromEntries(levels.slice(index + 1).map((child) => [child, []])) }));
-    const child = levels[index + 1];
-    if (child && id) {
-      try {
-        const items = await loadTaxonomy(child, id);
-        setTaxonomy((current) => ({ ...current, [child]: items }));
-      } catch (error) {
-        toastError("Could not load taxonomy options", getErrorMessage(error, "Please select the taxonomy level again."));
-      }
-    }
   };
 
-  const saveClassification = async (workId: string) => {
+  const saveClassificationMutation = useMutation({
+    mutationFn: ({ workId, topic, selected }: { workId: string; topic: string; selected: Record<TaxonomyLevel, Taxon | undefined> }) =>
+      api.patch(`/repository/works/${encodeURIComponent(workId)}/classification`, {
+        primaryTopicId: topic,
+        topicIds: [topic],
+        subfieldIds: selected.subfield ? [selected.subfield.id] : [],
+        fieldIds: selected.field ? [selected.field.id] : [],
+        domainIds: selected.domain ? [selected.domain.id] : [],
+      }),
+    onSuccess: async () => {
+      setSelectedWork(null);
+      setAssignment({ domain: "", field: "", subfield: "", topic: "" });
+      toastSuccess("Paper classified", "The paper remains in the shared library and can be filtered by OpenAlex taxonomy.");
+      await queryClient.invalidateQueries({ queryKey: repositoryKeys.works() });
+    },
+    onError: (error) => toastError("Could not save taxonomy", getErrorMessage(error, "Please select an OpenAlex topic again.")),
+  });
+
+  const saveClassification = (workId: string) => {
     if (!assignment.topic) {
       toastError("Topic not selected", "Select an OpenAlex topic to classify this paper.");
       return;
     }
-    const find = (level: TaxonomyLevel) => taxonomy[level].find((item) => item.id === assignment[level]);
+    const find = (level: TaxonomyLevel) => (assignmentTaxonomyQueries[level].data ?? []).find((item) => item.id === assignment[level]);
     const selected = Object.fromEntries(levels.map((level) => [level, find(level)])) as Record<TaxonomyLevel, Taxon | undefined>;
-    setBusy(true);
-    try {
-      await api.patch(`/repository/works/${encodeURIComponent(workId)}/classification`, {
-        primaryTopicId: assignment.topic,
-        topicIds: [assignment.topic],
-        subfieldIds: selected.subfield ? [selected.subfield.id] : [],
-        fieldIds: selected.field ? [selected.field.id] : [],
-        domainIds: selected.domain ? [selected.domain.id] : [],
-      });
-      setSelectedWork(null);
-      setAssignment({ domain: "", field: "", subfield: "", topic: "" });
-      toastSuccess("Paper classified", "The paper remains in the shared library and can be filtered by OpenAlex taxonomy.");
-      await loadWorks();
-    } catch (error) {
-      toastError("Could not save taxonomy", getErrorMessage(error, "Please select an OpenAlex topic again."));
-    } finally {
-      setBusy(false);
-    }
+    saveClassificationMutation.mutate({ workId, topic: assignment.topic, selected });
   };
   const download = async (work: Work, artifactId?: string) => {
     if (!artifactId) return;
@@ -147,7 +173,7 @@ function SharedRepositoryPage() {
     <div className="mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><p className="mb-2 inline-flex items-center gap-2 rounded-full bg-primary-light px-3 py-1 text-xs font-semibold text-primary"><FiBookOpen /> Shared library | OpenAlex</p><h1 className="text-[26px] font-semibold leading-tight tracking-tight text-text-primary">Paper library</h1><p className="mt-1 max-w-3xl text-[13px] leading-5 text-text-secondary sm:text-sm">Only Open Access records confirmed by OpenAlex are shown in this library.</p></div>
-        <Button variant="secondary" onClick={() => void loadWorks()} disabled={loading}><FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh</Button>
+        <Button variant="secondary" onClick={() => void worksQuery.refetch()} disabled={worksQuery.isFetching}><FiRefreshCw className={worksQuery.isFetching ? "animate-spin" : ""} /> Refresh</Button>
       </header>
 
       <section className="overflow-hidden rounded-xl border border-border bg-surface-white">
@@ -185,15 +211,15 @@ function SharedRepositoryPage() {
           filtersClassName="flex-1"
         />
         <div className="grid gap-3 border-b border-border bg-surface-white px-3 py-3 sm:grid-cols-2 sm:px-4 lg:grid-cols-4">
-          {levels.map((level) => taxonomySelect(level, filters[level], setFilters, taxonomy[level]))}
+          {levels.map((level) => taxonomySelect(level, filters[level], setFilters, taxonomyQueries[level].data ?? []))}
         </div>
 
-        {loading ? (
+        {worksQuery.isPending ? (
           <div className="flex justify-center py-12"><LoadingSpinner /></div>
         ) : works.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 px-4 py-12 text-center text-sm text-text-secondary">
             <p>No confirmed Open Access papers match these filters.</p>
-            {nextCursor && <Button variant="secondary" size="sm" disabled={loadingMore} onClick={() => void loadWorks(nextCursor, true)}>{loadingMore ? "Checking..." : "Check more papers"}</Button>}
+            {hasNextPage && <Button variant="secondary" size="sm" disabled={worksQuery.isFetchingNextPage} onClick={() => void worksQuery.fetchNextPage()}>{worksQuery.isFetchingNextPage ? "Checking..." : "Check more papers"}</Button>}
           </div>
         ) : (
           <>
@@ -276,8 +302,8 @@ function SharedRepositoryPage() {
                           <TableRow>
                             <TableCell colSpan={isGlobalAdmin ? 6 : 5} className="bg-bg-primary/50 px-5 py-2.5">
                               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                                {levels.map((level) => taxonomySelect(level, assignment[level], setAssignment, taxonomy[level]))}
-                                <div className="flex items-end"><Button disabled={busy || !assignment.topic} onClick={() => void saveClassification(work.workId)} className="min-h-10 w-full">Save classification</Button></div>
+                                {levels.map((level) => taxonomySelect(level, assignment[level], setAssignment, assignmentTaxonomyQueries[level].data ?? []))}
+                                <div className="flex items-end"><Button disabled={saveClassificationMutation.isPending || !assignment.topic} onClick={() => saveClassification(work.workId)} className="min-h-10 w-full">Save classification</Button></div>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -287,7 +313,7 @@ function SharedRepositoryPage() {
                   })}
                 </TableBody>
               </Table>
-            <div className="flex flex-col gap-2 border-t border-border bg-bg-primary/50 px-3 py-2.5 text-xs text-text-secondary sm:flex-row sm:items-center sm:justify-between sm:px-4"><span>Showing {works.length} Open Access papers</span>{nextCursor && <Button variant="secondary" size="sm" disabled={loadingMore} onClick={() => void loadWorks(nextCursor, true)}>{loadingMore ? "Checking..." : "Load more"}</Button>}</div>
+            <div className="flex flex-col gap-2 border-t border-border bg-bg-primary/50 px-3 py-2.5 text-xs text-text-secondary sm:flex-row sm:items-center sm:justify-between sm:px-4"><span>Showing {works.length} Open Access papers</span>{hasNextPage && <Button variant="secondary" size="sm" disabled={worksQuery.isFetchingNextPage} onClick={() => void worksQuery.fetchNextPage()}>{worksQuery.isFetchingNextPage ? "Checking..." : "Load more"}</Button>}</div>
           </>
         )}
       </section>

@@ -206,7 +206,12 @@ function toExtractedValue(fieldId: string, value: unknown): ExtractedValueDto {
 
 function invalidateProjectQueries(queryClient: QueryClient, projectId?: string) {
   if (!projectId) return Promise.resolve();
-  return queryClient.invalidateQueries({ queryKey: [...ROOT, projectId] });
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "dashboard"] }),
+    queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "workload"] }),
+    queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "phase-state"] }),
+    queryClient.invalidateQueries({ queryKey: ["data-extraction-conducting", "dashboard", projectId] }),
+  ]);
 }
 export function useDataExtractionWorkspace(): UseDataExtractionWorkspaceReturn {
   const { projectId, studyId } = useParams<{ projectId: string; studyId?: string }>();
@@ -227,6 +232,10 @@ export function useDataExtractionWorkspace(): UseDataExtractionWorkspaceReturn {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [draftValuesByPaper, setDraftValuesByPaper] = useState<Record<string, Record<string, ExtractionValue>>>({});
   const [activeHighlights, setActiveHighlights] = useState<UseDataExtractionWorkspaceReturn["activeHighlights"]>([]);
+
+  useEffect(() => {
+    setDraftValuesByPaper({});
+  }, [currentUserId, projectId]);
 
   const projectMembersQuery = useQuery({
     queryKey: [...ROOT, projectId, "members"],
@@ -317,20 +326,26 @@ export function useDataExtractionWorkspace(): UseDataExtractionWorkspaceReturn {
   const selectedStatus = normalizeExtractionStatus(selectedTask?.status);
 
   const reviewerWorkspaceQuery = useQuery({
-    queryKey: [...ROOT, projectId, "reviewer", selectedPaperId],
-    enabled: !!projectId && !!selectedPaperId && !isCurrentUserLeader,
+    queryKey: [...ROOT, projectId, "reviewer", currentUserId ?? "anonymous", selectedPaperId],
+    enabled: !!projectId && !!studyId && !!currentUserId && !!selectedPaperId && !isCurrentUserLeader,
     queryFn: () => projectId && selectedPaperId
       ? dataExtractionConductingService.getReviewerWorkspace(projectId, selectedPaperId)
       : Promise.reject(new Error("Project and paper IDs are required")),
-    staleTime: 0,
+    staleTime: 10_000,
+    refetchInterval: !!studyId && !isCurrentUserLeader ? 15_000 : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
   const consensusWorkspaceQuery = useQuery({
     queryKey: [...ROOT, projectId, "consensus", selectedPaperId],
-    enabled: !!projectId && !!selectedPaperId && isCurrentUserLeader && selectedStatus !== "todo",
+    enabled: !!projectId && !!studyId && !!selectedPaperId && isCurrentUserLeader && selectedStatus !== "todo",
     queryFn: () => projectId && selectedPaperId
       ? dataExtractionConductingService.getConsensusWorkspace(projectId, selectedPaperId)
       : Promise.reject(new Error("Project and paper IDs are required")),
-    staleTime: 0,
+    staleTime: 10_000,
+    refetchInterval: !!studyId && isCurrentUserLeader && selectedStatus !== "todo" ? 15_000 : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
   const reviewerWorkspace = reviewerWorkspaceQuery.data ?? null;
   const consensusWorkspace = consensusWorkspaceQuery.data ?? null;
@@ -400,7 +415,10 @@ export function useDataExtractionWorkspace(): UseDataExtractionWorkspaceReturn {
       ? dataExtractionConductingService.saveExtractionDraft(projectId, paperId, payload)
       : Promise.reject(new Error("Project ID required")),
     onSuccess: async (_data, variables) => {
-      await queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "reviewer", variables.paperId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "reviewer", currentUserId ?? "anonymous", variables.paperId] }),
+        queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "consensus", variables.paperId] }),
+      ]);
       toastSuccess("Draft saved");
     },
     onError: (error) => toastError("Save draft failed", getErrorMessage(error, "Unable to save extraction draft.")),
@@ -411,7 +429,10 @@ export function useDataExtractionWorkspace(): UseDataExtractionWorkspaceReturn {
       : Promise.reject(new Error("Project ID required")),
     onSuccess: async (_data, variables) => {
       await refreshRecords();
-      await queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "reviewer", variables.paperId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "reviewer", currentUserId ?? "anonymous", variables.paperId] }),
+        queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "consensus", variables.paperId] }),
+      ]);
       toastSuccess("Extraction submitted");
     },
     onError: (error) => toastError("Submit extraction failed", getErrorMessage(error, "Unable to submit extraction.")),
@@ -420,7 +441,13 @@ export function useDataExtractionWorkspace(): UseDataExtractionWorkspaceReturn {
     mutationFn: ({ paperId, payload }: { paperId: string; payload: ReopenExtractionRequestDto }) => projectId
       ? dataExtractionConductingService.reopenExtraction(projectId, paperId, payload)
       : Promise.reject(new Error("Project ID required")),
-    onSuccess: refreshRecords,
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        refreshRecords(),
+        queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "reviewer", currentUserId ?? "anonymous", variables.paperId] }),
+        queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "consensus", variables.paperId] }),
+      ]);
+    },
     onError: (error) => toastError("Reopen failed", getErrorMessage(error, "Unable to reopen extraction.")),
   });
   const commentMutation = useMutation({
@@ -431,7 +458,7 @@ export function useDataExtractionWorkspace(): UseDataExtractionWorkspaceReturn {
       })
       : Promise.reject(new Error("Project ID required")),
     onSuccess: async (_data, variables) => {
-      await queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "reviewer", variables.paperId] });
+      await queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "reviewer", currentUserId ?? "anonymous", variables.paperId] });
       await queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "consensus", variables.paperId] });
     },
     onError: (error) => toastError("Add comment failed", getErrorMessage(error, "Unable to send comment.")),
@@ -465,7 +492,13 @@ export function useDataExtractionWorkspace(): UseDataExtractionWorkspaceReturn {
     mutationFn: ({ paperId, expectedVersion }: { paperId: string; expectedVersion: number }) => projectId
       ? dataExtractionConductingService.finalizeConsensus(projectId, paperId, expectedVersion)
       : Promise.reject(new Error("Project ID required")),
-    onSuccess: async () => { await refreshRecords(); toastSuccess("Consensus finalized"); },
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        refreshRecords(),
+        queryClient.invalidateQueries({ queryKey: [...ROOT, projectId, "consensus", variables.paperId] }),
+      ]);
+      toastSuccess("Consensus finalized");
+    },
     onError: (error) => toastError("Finalize consensus failed", getErrorMessage(error, "Unable to finalize consensus.")),
   });
 
@@ -717,9 +750,9 @@ export function useDataExtractionWorkspace(): UseDataExtractionWorkspaceReturn {
     return taskOwnStatus === "SUBMITTED" || (paperId === selectedPaperId && isSubmitted);
   }, [isSubmitted, selectedPaperId, taskByPaperId]);
   const fetchReviewerWorkspace = useCallback(async (paperId: string) => {
-    if (!projectId) return null;
-    return queryClient.fetchQuery({ queryKey: [...ROOT, projectId, "reviewer", paperId], queryFn: () => dataExtractionConductingService.getReviewerWorkspace(projectId, paperId), staleTime: 0 });
-  }, [projectId, queryClient]);
+    if (!projectId || !currentUserId) return null;
+    return queryClient.fetchQuery({ queryKey: [...ROOT, projectId, "reviewer", currentUserId, paperId], queryFn: () => dataExtractionConductingService.getReviewerWorkspace(projectId, paperId), staleTime: 10_000 });
+  }, [currentUserId, projectId, queryClient]);
   const fetchConsensusWorkspace = useCallback(async (paperId: string) => {
     if (!projectId) return null;
     return queryClient.fetchQuery({ queryKey: [...ROOT, projectId, "consensus", paperId], queryFn: () => dataExtractionConductingService.getConsensusWorkspace(projectId, paperId), staleTime: 0 });

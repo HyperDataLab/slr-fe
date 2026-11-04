@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { isAxiosError } from "axios";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSelector } from "react-redux";
 import {
   FiAlertCircle,
   FiCheckCircle,
@@ -18,6 +20,7 @@ import {
 } from "../../services/issueReportService";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
+import type { RootState } from "../../redux/store";
 
 type PageTab = "new" | "reports";
 
@@ -116,11 +119,12 @@ function ReportCard({ item }: { item: IssueReport }) {
 }
 
 export default function MyIssueReportsPage() {
-  const [items, setItems] = useState<IssueReport[]>([]);
+  const queryClient = useQueryClient();
+  const userId = useSelector((state: RootState) => state.auth.user?.id ?? "anonymous");
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const [activeTab, setActiveTab] = useState<PageTab>("new");
   const newTabRef = useRef<HTMLButtonElement>(null);
   const reportsTabRef = useRef<HTMLButtonElement>(null);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -130,21 +134,25 @@ export default function MyIssueReportsPage() {
   const [pageUrl, setPageUrl] = useState(window.location.href);
   const [pageUrlError, setPageUrlError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      setItems(await issueReportService.getMine());
-    } catch {
-      setError("Your reports could not be loaded. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const reportsKey = ["issue-reports", "mine", userId] as const;
+  const reportsQuery = useQuery({
+    queryKey: reportsKey,
+    queryFn: issueReportService.getMine,
+    enabled: isAuthenticated,
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: activeTab === "reports" ? 60_000 : false,
+    refetchIntervalInBackground: false,
+  });
+  const items = reportsQuery.data ?? [];
+  const loading = reportsQuery.isLoading;
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const refreshReports = () => {
+    setError("");
+    void reportsQuery.refetch({ throwOnError: true }).catch(() => {
+      setError("Your reports could not be loaded. Please try again.");
+    });
+  };
 
   const openReports = items.filter((item) => item.status !== "RESOLVED").length;
   const resolvedReports = items.length - openReports;
@@ -169,7 +177,7 @@ export default function MyIssueReportsPage() {
         description: description.trim(),
         pageUrl: parsedPageUrl.href,
       });
-      setItems((current) => [created, ...current]);
+      queryClient.setQueryData<IssueReport[]>(reportsKey, (current = []) => [created, ...current.filter((item) => item.id !== created.id)]);
       setTitle("");
       setDescription("");
       setMessage("Your report was submitted. You can follow its progress in My reports.");
@@ -209,8 +217,8 @@ export default function MyIssueReportsPage() {
         </div>
         <button
           type="button"
-          onClick={() => void load()}
-          disabled={loading}
+          onClick={refreshReports}
+          disabled={reportsQuery.isFetching}
           className="inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-lg border border-border bg-white px-4 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60 sm:self-center"
         >
           <FiRefreshCw aria-hidden="true" className={loading ? "animate-spin" : ""} />
@@ -256,9 +264,9 @@ export default function MyIssueReportsPage() {
         </div>
       </div>
 
-      {error && (
+      {(error || (reportsQuery.isError && activeTab === "reports")) && (
         <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          {error}
+          {error || "Your reports could not be loaded. Please try again."}
         </p>
       )}
       {message && (

@@ -131,13 +131,14 @@ export function useFullTextScreening(): UseFullTextScreeningReturn {
 
   // ---- React Query: Fetch Papers ----
   const papersQuery = useQuery({
-    queryKey: QUERY_KEYS.studySelection.papers(
+    queryKey: [...QUERY_KEYS.studySelection.papers(
       screeningProcessId ?? "",
       apiParams as unknown as Record<string, unknown>,
-    ),
+    ), currentUser?.id ?? "anonymous"],
     queryFn: () => studySelectionService.getAssignedPapers(screeningProcessId!, apiParams),
     enabled: !!screeningProcessId,
     staleTime: 60_000,
+    refetchOnWindowFocus: true,
     placeholderData: keepPreviousData,
   });
 
@@ -147,6 +148,7 @@ export function useFullTextScreening(): UseFullTextScreeningReturn {
     queryFn: () => studySelectionService.getStatistics(screeningProcessId!, "TitleAbstract"),
     enabled: !!screeningProcessId,
     staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
 
   const ftStatsQuery = useQuery({
@@ -154,6 +156,7 @@ export function useFullTextScreening(): UseFullTextScreeningReturn {
     queryFn: () => studySelectionService.getStatistics(screeningProcessId!, "FullText"),
     enabled: !!screeningProcessId,
     staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
 
   // Adapt API response
@@ -198,11 +201,11 @@ export function useFullTextScreening(): UseFullTextScreeningReturn {
 
   // ---- React Query: Fetch Paper Details ----
   const paperDetailsQuery = useQuery({
-    queryKey: QUERY_KEYS.studySelection.paperDetails(
+    queryKey: [...QUERY_KEYS.studySelection.paperDetails(
       screeningProcessId ?? "",
       resolvedSelectedId ?? "",
       PaperPhase.FullText,
-    ),
+    ), currentUser?.id ?? "anonymous"],
     queryFn: () => studySelectionService.getPaperDetails(
       screeningProcessId!,
       resolvedSelectedId!,
@@ -210,7 +213,7 @@ export function useFullTextScreening(): UseFullTextScreeningReturn {
     ),
     enabled: !!screeningProcessId && !!resolvedSelectedId && (isLeader || !!routePaperId),
     staleTime: 30_000,
-    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const detailedPaper = useMemo(
@@ -318,11 +321,11 @@ export function useFullTextScreening(): UseFullTextScreeningReturn {
       });
     },
     onSuccess: (response, variables) => {
-      const detailsKey = QUERY_KEYS.studySelection.paperDetails(
+      const detailsKey = [...QUERY_KEYS.studySelection.paperDetails(
         screeningProcessId!,
         variables.paperId,
         PaperPhase.FullText,
-      );
+      ), currentUser?.id ?? "anonymous"] as const;
       const submittedDecision = response.data;
       if (submittedDecision) {
         queryClient.setQueryData<GetPaperDetailsResponse>(detailsKey, (current) => {
