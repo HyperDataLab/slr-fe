@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { FiCheck, FiCopy, FiKey, FiRefreshCw, FiTrash2 } from 'react-icons/fi';
 import api from '../../config/axios';
 
@@ -110,7 +109,7 @@ export default function ApiKeysPage() {
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:py-12">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div><p className="text-xs font-bold uppercase tracking-widest text-primary">Account settings</p><h1 className="mt-2 flex items-center gap-3 text-3xl font-bold text-text-primary"><FiKey aria-hidden="true" /> API Keys</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">Create and manage credentials for the Research Repository API. Keys only access system wide data and cannot write data.</p></div>
-        <Link className="min-h-11 rounded-lg border border-border px-4 py-3 text-sm font-semibold text-primary hover:bg-bg-secondary" to="/repository-api-docs" target="_blank">API documentation</Link>
+        <a className="min-h-11 rounded-lg border border-border px-4 py-3 text-sm font-semibold text-primary hover:bg-bg-secondary" href="/repository-api-docs">API documentation</a>
       </div>
 
       {error && <div role="alert" className="mb-5 rounded-lg border border-error/30 bg-error/5 p-4 text-sm text-error">{error}</div>}
