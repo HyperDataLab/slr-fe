@@ -65,6 +65,7 @@ export function useSynthesisWorkspace(): UseSynthesisWorkspaceReturn {
     },
     enabled: Boolean(reviewProcessId),
     staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const sourceDataGroupsQuery = useQuery({
@@ -77,7 +78,8 @@ export function useSynthesisWorkspace(): UseSynthesisWorkspaceReturn {
       return synthesisExecutionService.getSourceDataGroups(reviewProcessId);
     },
     enabled: Boolean(reviewProcessId && workspaceQuery.data?.process.status !== "NotStarted"),
-    staleTime: 60 * 1000,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const synthesisProcessId = workspaceQuery.data?.process.id;

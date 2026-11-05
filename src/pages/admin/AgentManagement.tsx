@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSelector } from "react-redux";
 import { FiCpu, FiEdit2, FiPlus, FiSave, FiSearch, FiToggleLeft, FiToggleRight, FiX } from "react-icons/fi";
 import { isAxiosError } from "axios";
 import api from "../../config/axios";
@@ -10,6 +12,7 @@ import DataTableToolbar from "../../components/ui/DataTableToolbar";
 import ActionButton from "../../components/admin/slr-projects/ActionButton";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import { toastSuccess } from "../../utils/toast";
+import type { RootState } from "../../redux/store";
 
 type Agent = { id: string; name: string; description: string; isActive: boolean };
 type ApiData<T> = { data: T };
@@ -20,13 +23,25 @@ const errorText = (error: unknown) => isAxiosError(error)
   : "Request failed";
 
 export default function AgentManagement() {
-  const [agents, setAgents] = useState<Agent[]>([]);
+  const queryClient = useQueryClient();
+  const userId = useSelector((state: RootState) => state.auth.user?.id ?? "anonymous");
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+  const agentsKey = ["admin", "agents", userId] as const;
+  const agentsQuery = useQuery({
+    queryKey: agentsKey,
+    queryFn: async () => {
+      const { data } = await api.get<ApiData<Agent[]>>("/admin/agents");
+      return data.data;
+    },
+    enabled: isAuthenticated,
+    staleTime: 5 * 60 * 1000,
+  });
+  const agents = agentsQuery.data ?? [];
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [editing, setEditing] = useState<Agent | null>(null);
   const [disableTarget, setDisableTarget] = useState<Agent | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
@@ -34,18 +49,10 @@ export default function AgentManagement() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const reload = async () => {
-    setIsLoading(true);
-    try {
-      const { data } = await api.get<ApiData<Agent[]>>("/admin/agents");
-      setAgents(data.data);
-    } finally {
-      setIsLoading(false);
-    }
+    await queryClient.invalidateQueries({ queryKey: agentsKey });
   };
-
-  useEffect(() => {
-    void reload().catch((reason) => setError(errorText(reason)));
-  }, []);
+  const isLoading = agentsQuery.isLoading;
+  const loadError = error || (agentsQuery.error ? errorText(agentsQuery.error) : "");
 
   const filteredAgents = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -127,8 +134,8 @@ export default function AgentManagement() {
         </Button>
       </header>
 
-      {error && agents.length > 0 && (
-        <div role="alert" className="rounded-lg border border-error/20 bg-error/5 px-3 py-2.5 text-sm text-error">{error}</div>
+      {loadError && agents.length > 0 && (
+        <div role="alert" className="rounded-lg border border-error/20 bg-error/5 px-3 py-2.5 text-sm text-error">{loadError}</div>
       )}
 
       <section className="overflow-hidden rounded-xl border border-border bg-white">
@@ -186,12 +193,12 @@ export default function AgentManagement() {
               ) : filteredAgents.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-10 text-center">
-                    <p className="text-sm font-semibold text-text-primary">{error && agents.length === 0 ? "Could not load agents" : "No agents found"}</p>
+                    <p className="text-sm font-semibold text-text-primary">{loadError && agents.length === 0 ? "Could not load agents" : "No agents found"}</p>
                     <p className="mt-1 text-xs text-text-secondary">
-                      {error && agents.length === 0 ? error : "Try another search or status filter."}
+                      {loadError && agents.length === 0 ? loadError : "Try another search or status filter."}
                     </p>
-                    {error && agents.length === 0 && (
-                      <Button variant="secondary" size="sm" className="mt-3" onClick={() => { setError(""); void reload().catch((reason) => setError(errorText(reason))); }}>Retry</Button>
+                    {loadError && agents.length === 0 && (
+                      <Button variant="secondary" size="sm" className="mt-3" onClick={() => { setError(""); void agentsQuery.refetch(); }}>Retry</Button>
                     )}
                   </td>
                 </tr>

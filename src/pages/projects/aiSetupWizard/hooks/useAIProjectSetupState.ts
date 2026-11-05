@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSelector } from "react-redux";
 import {
   aiProjectSetupService,
   type GeneratePicocResponse,
@@ -8,6 +10,8 @@ import {
 } from "../../../../services/aiProjectSetupService.ts";
 import { toastError, toastSuccess, toastWarning } from "../../../../utils/toast";
 import { DEFAULT_TOPIC, EMPTY_PICOC, EMPTY_SCOPE } from "../constants";
+import { projectQueryKeys } from "../../../../constants/projectQueryKeys";
+import type { RootState } from "../../../../redux/store";
 import type {
   EditableResearchQuestion,
   PicoCForm,
@@ -18,6 +22,12 @@ import type {
 } from "../types";
 
 export function useAIProjectSetupState(projectId: string, onSetupSaved?: () => void) {
+  const queryClient = useQueryClient();
+  const currentUserId = useSelector((state: RootState) => state.auth.user?.id ?? "anonymous");
+  const setupDetailsKey = useMemo(
+    () => projectQueryKeys.setupDetails(projectId, currentUserId),
+    [projectId, currentUserId],
+  );
   const [viewMode, setViewMode] = useState<ViewMode>("wizard");
   const [isLoadingSetup, setIsLoadingSetup] = useState(true);
 
@@ -116,7 +126,7 @@ export function useAIProjectSetupState(projectId: string, onSetupSaved?: () => v
     setSetupSnapshot(snapshot);
   }, []);
 
-  const loadSetupDetails = useCallback(async () => {
+  const loadSetupDetails = useCallback(async (forceRefresh = false) => {
     if (!projectId) {
       setIsLoadingSetup(false);
       setViewMode("wizard");
@@ -125,7 +135,11 @@ export function useAIProjectSetupState(projectId: string, onSetupSaved?: () => v
 
     setIsLoadingSetup(true);
     try {
-      const response = await aiProjectSetupService.getSetupDetails(projectId);
+      const response = await queryClient.fetchQuery({
+        queryKey: setupDetailsKey,
+        queryFn: () => aiProjectSetupService.getSetupDetails(projectId),
+        staleTime: forceRefresh ? 0 : 60_000,
+      });
       if (!response?.isSuccess || !response?.data) {
         setViewMode("wizard");
         return;
@@ -143,7 +157,7 @@ export function useAIProjectSetupState(projectId: string, onSetupSaved?: () => v
     } finally {
       setIsLoadingSetup(false);
     }
-  }, [applySetupData, projectId]);
+  }, [applySetupData, projectId, queryClient, setupDetailsKey]);
 
   useEffect(() => {
     void loadSetupDetails();
@@ -331,7 +345,12 @@ export function useAIProjectSetupState(projectId: string, onSetupSaved?: () => v
         throw new Error(response.message || "Failed to save setup details.");
       }
 
-      await loadSetupDetails();
+      await queryClient.invalidateQueries({
+        queryKey: setupDetailsKey,
+        exact: true,
+        refetchType: "none",
+      });
+      await loadSetupDetails(true);
       setViewMode("summary");
       toastSuccess("Setup saved", "Project setup details were updated successfully.");
       onSetupSaved?.();

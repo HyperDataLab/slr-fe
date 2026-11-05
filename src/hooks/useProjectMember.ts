@@ -12,14 +12,15 @@ import type { RootState } from "../redux/store";
  */
 export const useProjectMember = (projectId: string | undefined) => {
   const dispatch = useDispatch();
-  const { isAuthenticated, isInitialized } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, isInitialized, user } = useSelector((state: RootState) => state.auth);
   const currentProjectMember = useSelector((state: RootState) => state.project.currentProjectMember);
 
   const query = useQuery({
-    queryKey: QUERY_KEYS.projects.myMembership(projectId || ""),
+    queryKey: QUERY_KEYS.projects.myMembership(projectId || "", user?.id || "anonymous"),
     queryFn: () => (projectId ? projectService.getMyMembership(projectId) : Promise.reject("No project ID")),
     enabled: !!projectId && isAuthenticated && isInitialized,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const membership = query.data?.isSuccess ? query.data.data : undefined;

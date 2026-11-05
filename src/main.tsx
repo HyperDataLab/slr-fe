@@ -7,6 +7,7 @@ import { persistor, store } from "./redux/store.ts";
 import { PersistGate } from "redux-persist/integration/react";
 import { ToastProvider } from "./components/ui/toast/ToastProvider.tsx";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { queryClient } from "./config/queryClient";
 
 const PRELOAD_RELOAD_KEY = "slrs:preload-error-reload-at";
@@ -35,5 +36,6 @@ createRoot(document.getElementById("root")!).render(
         </BrowserRouter>
       </PersistGate>
     </Provider>
+    {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
   </QueryClientProvider>,
 );
