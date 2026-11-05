@@ -38,6 +38,7 @@ function EdgeReviewActions({ edgeId, decision, disabled, onReview }: { edgeId: s
 }
 
 export default function ArgumentGraph({ graph, title = "AIF Argument Graph", onReviewEdge, isReviewPending = false }: { graph: GraphData | null | undefined; title?: string; onReviewEdge?: (edgeId: string, decision: "VERIFIED" | "REJECTED", note?: string) => void; isReviewPending?: boolean }) {
+  const [selectedNode, setSelectedNode] = useState<Record<string, unknown> | null>(null);
   const nodes = Array.isArray(graph?.nodes) ? graph.nodes.filter(isObject) : [];
   const edges = Array.isArray(graph?.edges) ? graph.edges.filter(isObject) : [];
   const reviewedEdges = edges.filter((edge) => ["VERIFIED", "REJECTED"].includes(text(reviewOf(edge).decision))).length;
@@ -54,6 +55,8 @@ export default function ArgumentGraph({ graph, title = "AIF Argument Graph", onR
   return <section className="overflow-hidden rounded-xl border border-border bg-surface-white" aria-label={title}>
     <div className="border-b border-border px-4 py-3"><h4 className="font-semibold text-text-primary">{title}</h4><p className="text-xs text-text-muted">{nodes.length} nodes · {edges.length} edges. Drag to explore; use the mouse wheel to zoom.{onReviewEdge ? ` Human reviewed: ${reviewedEdges}/${edges.length} edges.` : ""}</p></div>
     <CytoscapeComponent key={text(graph?.artifact_id) || `${nodes.length}-${edges.length}-${text(nodes[0]?.node_id)}`} elements={elements} stylesheet={stylesheet} layout={layout} style={{ width: "100%", height: Math.min(480, Math.max(280, nodes.length * 50)) }} minZoom={0.35} maxZoom={2.5} />
+    <details open className="border-t border-border px-4 py-3 text-sm"><summary className="cursor-pointer font-medium text-text-secondary">Inspect graph nodes</summary><ul className="mt-2 flex flex-wrap gap-2">{nodes.map((node, index) => { const label = text(node.content) || text(node.label) || text(node.node_id) || `Node ${index + 1}`; return <li key={text(node.node_id) || index}><button type="button" className="min-h-10 rounded-lg border border-border px-3 text-left text-text-primary hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" onClick={() => setSelectedNode(node)}>{label}</button></li>; })}</ul></details>
+    {selectedNode && <aside role="complementary" aria-label="Selected graph node" className="relative border-t border-border bg-bg-secondary p-4"><button type="button" className="absolute right-3 top-3 min-h-10 rounded-lg px-3 text-sm font-semibold text-text-secondary hover:bg-surface-white" onClick={() => setSelectedNode(null)}>Close</button><h5 className="pr-20 font-semibold text-text-primary">{text(selectedNode.label) || text(selectedNode.node_id) || "Selected node"}</h5><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-secondary">{text(selectedNode.content) || text(selectedNode.label) || text(selectedNode.node_id)}</p>{text(selectedNode.type) && <p className="mt-2 text-xs text-text-muted">Node type: {text(selectedNode.type)}</p>}</aside>}
     <details className="border-t border-border p-4 text-sm">
       <summary className="cursor-pointer font-medium text-text-secondary">{onReviewEdge ? `Review AIF edges (${reviewedEdges}/${edges.length} reviewed)` : "Accessible relationship list"}</summary>
       <ul className="mt-3 space-y-2">

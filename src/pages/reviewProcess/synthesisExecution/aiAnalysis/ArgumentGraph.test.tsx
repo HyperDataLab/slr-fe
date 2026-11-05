@@ -2,9 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ArgumentGraph from "./ArgumentGraph";
 
-vi.mock("../../../../components/shared/paper/ResearchGraph", () => ({
-  LayoutFlow: ({ nodes, onSelect }: { nodes: { id: string; data: { label: string } }[]; onSelect: (node: unknown) => void }) => <div>{nodes.map((node) => <button key={node.id} onClick={() => onSelect(node)}>{node.data.label}</button>)}</div>,
-}));
+vi.mock("react-cytoscapejs", () => ({ default: () => null }));
 afterEach(cleanup);
 const claim = "A full claim that remains readable in the inspector even when the graph card truncates long source text.";
 const graph = { nodes: [{ node_id: "claim", type: "I", content: claim }, { node_id: "scheme", type: "S", label: "Support" }], edges: [{ edge_id: "edge-1", source: "claim", target: "scheme", role: "premise" }] };
