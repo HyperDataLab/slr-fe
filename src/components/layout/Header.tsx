@@ -115,11 +115,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen = false, hid
   const navLinks = location.pathname === "/"
     ? [
         { name: "Projects", path: "/projects", icon: FiLayers },
+        { name: "Developer API", path: "/repository-api-docs", icon: FiBookOpen },
         { name: "Workflow", path: "/#workflow", icon: FiLayers },
         { name: "Features", path: "/#features", icon: FiLayers },
         { name: "About", path: "/#about", icon: FiLayers },
       ]
-    : [{ name: "Projects", path: "/projects", icon: FiLayers }, { name: "Shared library", path: "/shared-repository", icon: FiBookOpen }];
+    : [{ name: "Projects", path: "/projects", icon: FiLayers }, { name: "Shared library", path: "/shared-repository", icon: FiBookOpen }, { name: "Developer API", path: "/repository-api-docs", icon: FiBookOpen }];
 
   const handleHeaderInteraction = (
     e: React.MouseEvent | React.KeyboardEvent,

@@ -24,6 +24,10 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
+        '/repository-api-docs.json': {
+          target: backendUrl,
+          changeOrigin: true,
+        },
         '/api': {
           target: backendUrl,
           changeOrigin: true,

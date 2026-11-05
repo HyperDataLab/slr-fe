@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import Button from "../ui/Button";
 import FormField from "../ui/FormField";
 import { authService } from "../../services/authService";
@@ -65,6 +65,12 @@ const LoginForm: React.FC = () => {
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const navigateAfterLogin = (role: string | undefined) => {
+    const requestedPath = new URLSearchParams(location.search).get("returnTo");
+    const safePath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/";
+    navigate(role === "Admin" ? "/admin" : safePath);
+  };
 
   const handleGoogleCredentialResponse = useCallback(
     async (response: GoogleCredentialResponse) => {
@@ -94,11 +100,7 @@ const LoginForm: React.FC = () => {
             "Welcome to Systematic Review Support System",
             `Hello ${username}`,
           );
-          if (normalizedRole === "Admin") {
-            navigate("/admin");
-          } else {
-            navigate("/");
-          }
+          navigateAfterLogin(normalizedRole);
         } else {
           toastError(
             "Login Failed",
@@ -232,11 +234,7 @@ const LoginForm: React.FC = () => {
           "Welcome to Systematic Review Support System",
           `Hello ${response.data.username}`,
         );
-        if (normalizedRole === "Admin") {
-          navigate("/admin");
-        } else {
-          navigate("/");
-        }
+        navigateAfterLogin(normalizedRole);
       } else {
         toastError(
           "Login Failed",
@@ -286,7 +284,7 @@ const LoginForm: React.FC = () => {
         }),
       );
       toastSuccess("Welcome to Systematic Review Support System", `Hello ${username}`);
-      navigate(normalizedRole === "Admin" ? "/admin" : "/");
+      navigateAfterLogin(normalizedRole);
     } catch {
       toastError("Quick Login Failed", "Check that development authentication is enabled on the server.");
     } finally {

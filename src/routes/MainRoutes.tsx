@@ -28,6 +28,7 @@ const DataExtractionPhaseWorkspace = lazy(() => import("../pages/reviewProcess/d
 const ExtractionGridWorkspace = lazy(() => import("../pages/reviewProcess/dataExtraction/components/gridWorkspace/ExtractionGridWorkspace"));
 const MyProfilePage = lazy(() => import("../pages/profile/MyProfilePage"));
 const ApiKeysPage = lazy(() => import("../pages/profile/ApiKeysPage"));
+const RepositoryApiDocsPage = lazy(() => import("../pages/developer/RepositoryApiDocsPage"));
 const ChecklistDashboardWrapper = lazy(() => import("../pages/checklist/ChecklistDashboardWrapper"));
 const ChecklistEditorPage = lazy(() => import("../pages/checklist/ChecklistEditorPage"));
 const ProjectAuditLogPage = lazy(() => import("../pages/projects/ProjectAuditLogPage"));
@@ -54,6 +55,7 @@ function MainRoutes() {
         <Route path="/" element={<MainLayout />}>
           {/* Home Page */}
           <Route index element={<HomePage />} />
+          <Route path="repository-api-docs" element={<RepositoryApiDocsPage />} />
 
           {/* Profile Page */}
           <Route

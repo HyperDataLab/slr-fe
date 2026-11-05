@@ -38,7 +38,7 @@ interface ComponentStepProps {
 const ComponentStep: React.FC<ComponentStepProps> = ({ projectId, component, draft, update, cache, onGenerateAll = () => undefined, batchLoading = false }) => {
   const signature = useMemo(() => upstreamSignature(draft, component), [draft, component]);
   const draftRef = useRef(draft);
-  draftRef.current = draft;
+  useEffect(() => { draftRef.current = draft; }, [draft]);
   const cached = cache[component];
   const [entry, setEntry] = useState<SuggestionCacheEntry | undefined>(cached);
   const [loading, setLoading] = useState(false);
