@@ -27,6 +27,7 @@ const InvitationDetailPage = lazy(() => import("../pages/invitations/InvitationD
 const DataExtractionPhaseWorkspace = lazy(() => import("../pages/reviewProcess/dataExtraction/DataExtractionPhaseWorkspace"));
 const ExtractionGridWorkspace = lazy(() => import("../pages/reviewProcess/dataExtraction/components/gridWorkspace/ExtractionGridWorkspace"));
 const MyProfilePage = lazy(() => import("../pages/profile/MyProfilePage"));
+const ApiKeysPage = lazy(() => import("../pages/profile/ApiKeysPage"));
 const ChecklistDashboardWrapper = lazy(() => import("../pages/checklist/ChecklistDashboardWrapper"));
 const ChecklistEditorPage = lazy(() => import("../pages/checklist/ChecklistEditorPage"));
 const ProjectAuditLogPage = lazy(() => import("../pages/projects/ProjectAuditLogPage"));
@@ -65,6 +66,9 @@ function MainRoutes() {
               )
             }
           />
+          <Route element={<ProtectedRoute />}>
+            <Route path="profile/api-keys" element={<ApiKeysPage />} />
+          </Route>
 
           {/* Project Routes */}
           <Route>
