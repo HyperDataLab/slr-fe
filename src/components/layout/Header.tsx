@@ -6,6 +6,7 @@ import {
   FiLayers,
   FiBookOpen,
   FiUser,
+  FiKey,
   FiLogOut,
   FiShield,
 } from "react-icons/fi";
@@ -114,11 +115,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen = false, hid
   const navLinks = location.pathname === "/"
     ? [
         { name: "Projects", path: "/projects", icon: FiLayers },
+        { name: "Developer API", path: "/repository-api-docs", icon: FiBookOpen },
         { name: "Workflow", path: "/#workflow", icon: FiLayers },
         { name: "Features", path: "/#features", icon: FiLayers },
         { name: "About", path: "/#about", icon: FiLayers },
       ]
-    : [{ name: "Projects", path: "/projects", icon: FiLayers }, { name: "Shared library", path: "/shared-repository", icon: FiBookOpen }];
+    : [{ name: "Projects", path: "/projects", icon: FiLayers }, { name: "Shared library", path: "/shared-repository", icon: FiBookOpen }, { name: "Developer API", path: "/repository-api-docs", icon: FiBookOpen }];
 
   const handleHeaderInteraction = (
     e: React.MouseEvent | React.KeyboardEvent,
@@ -319,6 +321,18 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen = false, hid
                           <span>
                             <span className="block text-[11px] font-bold">Profile</span>
                             <span className="mt-0.5 block text-[9px] text-text-muted">View your account</span>
+                          </span>
+                        </Link>
+
+                        <Link
+                          to="/profile/api-keys"
+                          onClick={() => setShowUserDropdown(false)}
+                          className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-text-secondary transition-colors hover:bg-primary-light hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
+                        >
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-light text-accent"><FiKey className="h-4 w-4" /></span>
+                          <span>
+                            <span className="block text-[11px] font-bold">API Keys</span>
+                            <span className="mt-0.5 block text-[9px] text-text-muted">Manage API access</span>
                           </span>
                         </Link>
 

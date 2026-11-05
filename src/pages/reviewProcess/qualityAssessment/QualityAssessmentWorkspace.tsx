@@ -18,12 +18,9 @@ import { ProjectRole } from "../../../types/project";
 import type { ReviewerDecisionPayload } from "./components/ReviewerQAPanel";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../redux/store";
-import { cn } from "../../../utils/cn";
+import { CheckCircle2, CircleDashed, Clock3, Files } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
-import { useContext } from "react";
-import { ClientWorkspaceSidebarContext } from "../../../contexts/ClientWorkspaceSidebarContext";
-import { ArrowLeft } from "lucide-react";
 
 export type WorkspaceQAPaper = QAPaperResponse | LeaderQAPaperResponse;
 
@@ -36,35 +33,7 @@ const defaultQAStats = {
   completionPercentage: 0,
 };
 
-function QAMetricCard({
-  title,
-  value,
-  tone,
-}: {
-  title: string;
-  value: number;
-  tone: "neutral" | "blue" | "success" | "warning";
-}) {
-  const styles = {
-    neutral: { dot: "bg-text-secondary", value: "text-text-primary" },
-    blue: { dot: "bg-primary", value: "text-primary" },
-    success: { dot: "bg-success", value: "text-success" },
-    warning: { dot: "bg-warning", value: "text-warning" },
-  }[tone];
-
-  return (
-    <div className="rounded-xl border border-border bg-surface-white px-4 py-3.5">
-      <div className="flex items-center gap-2">
-        <span aria-hidden="true" className={cn("h-1.5 w-1.5 rounded-full", styles.dot)} />
-        <p className="text-[13px] font-medium text-text-secondary">{title}</p>
-      </div>
-      <p className={cn("mt-3 text-[26px] font-semibold leading-none tracking-tight tabular-nums", styles.value)}>{value}</p>
-    </div>
-  );
-}
-
 export default function QualityAssessmentWorkspace() {
-  const onOpenWorkspaceSidebar = useContext(ClientWorkspaceSidebarContext);
   const { projectId, qualityAssessmentId, processId } = useParams<{
     projectId: string;
     qualityAssessmentId: string;
@@ -309,38 +278,6 @@ export default function QualityAssessmentWorkspace() {
     }
   };
 
-  const handleLeaderSaveDraft = (
-    notes: string | null,
-    decisionitems: ReviewerDecisionPayload[],
-  ) => {
-    if (!selectedPaperId || !qualityAssessmentId || !isLeader) return;
-    const paper = selectedPaper as LeaderQAPaperResponse | null;
-    const myDecision = paper?.decisions?.find((decision) => decision.reviewerId === currentUser?.id);
-    const decisionItems = decisionitems.map((item) => ({
-      id: item.itemId || null,
-      qualityCriterionId: item.criterionId,
-      value: item.value,
-      comment: item.comment,
-      pdfHighlightCoordinates: item.pdfHighlightCoordinates,
-    }));
-
-    if (myDecision?.id) {
-      updateDecisions({ id: myDecision.id, notes, decisionItems });
-    } else {
-      submitDecisions({
-        paperId: selectedPaperId,
-        qualityAssessmentProcessId: qualityAssessmentId,
-        notes,
-        decisionItems: decisionItems.map(({ qualityCriterionId, value, comment, pdfHighlightCoordinates }) => ({
-          qualityCriterionId,
-          value,
-          comment,
-          pdfHighlightCoordinates,
-        })),
-      });
-    }
-  };
-
   const handleLeaderResolve = (
     data: Omit<
       QualityAssessmentResolutionRequest,
@@ -435,41 +372,28 @@ export default function QualityAssessmentWorkspace() {
   };
 
   return (
-    <div className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-bg-primary">
-      {viewMode === "list" && (
-        <QAHeader
-          onMenuClick={onOpenWorkspaceSidebar}
-          stats={stats}
-          phaseStatus={isError ? "Unavailable" : phaseStatus ?? "NotStarted"}
-          unavailable={isError}
-          onExport={isLeader && !isError ? exportCsv : undefined}
-          rightControls={
-            isLeader &&
-            !isError &&
-            canEdit && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsAutoResolveOpen(true)}
-                className="min-h-11 normal-case tracking-normal"
-              >
-                Auto-Resolve
-              </Button>
-            )
-          }
-        />
-      )}
-
-      {viewMode === "list" && <nav className="mx-auto w-full max-w-[1520px] px-4 pt-4 sm:px-6 lg:px-8">
-        <button
-          type="button"
-          onClick={handleBack}
-          className="inline-flex min-h-9 items-center gap-2 text-sm text-text-secondary transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-        >
-          <ArrowLeft size={17} aria-hidden="true" />
-          Back to project
-        </button>
-      </nav>}
+    <div className="flex h-screen flex-col bg-bg-primary relative">
+      <QAHeader
+        onBack={viewMode === "edit" ? closeEditSpace : handleBack}
+        stats={stats}
+        phaseStatus={isError ? "Unavailable" : phaseStatus ?? "NotStarted"}
+        unavailable={isError}
+        onExport={isLeader && !isError ? exportCsv : undefined}
+        rightControls={
+          isLeader &&
+          !isError &&
+          canEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsAutoResolveOpen(true)}
+              className="h-11 min-h-11 border-accent/20 bg-primary-light px-3 text-xs font-medium text-accent hover:bg-primary-light"
+            >
+              Auto-Resolve
+            </Button>
+          )
+        }
+      />
 
       {viewMode === "list" && isError ? (
         <main className="mx-auto flex w-full max-w-3xl flex-1 items-center justify-center px-5 py-12 sm:px-6">
@@ -480,34 +404,89 @@ export default function QualityAssessmentWorkspace() {
           </div>
         </main>
       ) : viewMode === "list" ? (
-        <main className="mx-auto flex w-full max-w-[1520px] flex-1 flex-col gap-4 overflow-auto px-4 py-5 sm:px-6 lg:gap-5 lg:px-8">
-          <section aria-label="Assessment progress" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <QAMetricCard title="Total studies" value={stats.total} tone="neutral" />
-            <QAMetricCard title="Completed" value={stats.completed} tone="success" />
-            <QAMetricCard title="In progress" value={stats.inProgress} tone="blue" />
-            <QAMetricCard title={isLeader ? "Not started" : "Pending"} value={isLeader ? stats.notStarted : stats.pending} tone="warning" />
+        <main className="mx-auto flex w-full max-w-[1680px] flex-1 flex-col gap-5 overflow-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+          <section className="relative isolate overflow-hidden rounded-2xl border border-accent/15 bg-primary-light/70 px-5 py-5 sm:px-6 sm:py-6">
+            <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full border border-accent/10" />
+            <div aria-hidden="true" className="pointer-events-none absolute -right-4 -top-16 h-48 w-48 rounded-full border border-accent/10" />
+            <div className="relative flex items-center gap-4">
+              <span className="h-12 w-1 shrink-0 rounded-full bg-primary" />
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
+                  {isLeader ? "Quality review · Leader workspace" : "Quality review · Reviewer workspace"}
+                </p>
+                <h2 className="mt-1 text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
+                  Assessment workspace
+                </h2>
+                <p className="mt-1.5 max-w-2xl text-sm leading-6 text-text-secondary">
+                  {isLeader
+                    ? "Assign studies, follow reviewer progress, and resolve each assessment."
+                    : "Work through your assigned studies and submit each assessment."}
+                </p>
+              </div>
+            </div>
           </section>
 
-          {isLeader && memberProgresses.length > 0 && (
-            <ReviewerProgressPanel reviewerProgresses={memberProgresses} />
-          )}
+          <section aria-label="Assessment progress" className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border lg:grid-cols-4">
+            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">Total studies</p>
+                <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{stats.total}</p>
+                <p className="mt-2 text-xs text-text-secondary">In assessment scope</p>
+              </div>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bg-primary text-text-secondary"><Files size={18} /></span>
+            </div>
+            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">Completed</p>
+                <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{stats.completed}</p>
+                <p className="mt-2 text-xs text-success">{stats.total ? `${Math.round(stats.completionPercentage)}% of studies reviewed` : "No studies completed"}</p>
+              </div>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success/10 text-success"><CheckCircle2 size={18} /></span>
+            </div>
+            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">In progress</p>
+                <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{stats.inProgress}</p>
+                <p className="mt-2 text-xs text-text-secondary">Reviewer work underway</p>
+              </div>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-light text-accent"><Clock3 size={18} /></span>
+            </div>
+            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">{isLeader ? "Not started" : "Pending"}</p>
+                <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{isLeader ? stats.notStarted : stats.pending}</p>
+                <p className="mt-2 text-xs text-text-secondary">{isLeader ? "Waiting for reviewer activity" : "Awaiting final submission"}</p>
+              </div>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning"><CircleDashed size={18} /></span>
+            </div>
+          </section>
 
-          <AssignMembersTabContent
-            papers={activePapers}
-            isLeader={isLeader}
-            onPaperClick={openEditSpace}
-            onAssignClick={handleAssignClick}
-            onReopenPaper={handleReopenPaper}
-            searchQuery={searchQuery}
-            onSearchChange={(q) => {
-              setSearchQuery(q);
-              setQaPage(1);
-            }}
-            currentPage={qaPage}
-            totalPages={totalPagesList ?? 1}
-            totalItems={totalItemsList ?? 0}
-            onPageChange={setQaPage}
-          />
+          <div className={isLeader && memberProgresses.length > 0 ? "grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-6" : "block"}>
+            <div className={isLeader && memberProgresses.length > 0 ? "min-w-0" : "w-full"}>
+              <AssignMembersTabContent
+                papers={activePapers}
+                isLeader={isLeader}
+                onPaperClick={openEditSpace}
+                onAssignClick={handleAssignClick}
+                onReopenPaper={handleReopenPaper}
+                searchQuery={searchQuery}
+                onSearchChange={(q) => {
+                  setSearchQuery(q);
+                  setQaPage(1);
+                }}
+                currentPage={qaPage}
+                totalPages={totalPagesList ?? 1}
+                totalItems={totalItemsList ?? 0}
+                onPageChange={setQaPage}
+              />
+            </div>
+
+            {isLeader && memberProgresses.length > 0 && (
+              <div className="min-w-0 xl:sticky xl:top-5">
+                <ReviewerProgressPanel reviewerProgresses={memberProgresses} />
+              </div>
+            )}
+          </div>
         </main>
       ) : (
         <main className="flex-1 min-h-0 flex flex-col pt-0 w-full overflow-hidden bg-surface-white">
@@ -529,8 +508,6 @@ export default function QualityAssessmentWorkspace() {
             onPageChange={setQaPage}
             onReviewerSave={handleReviewerSave}
             onLeaderResolve={handleLeaderResolve}
-            onLeaderSaveDraft={handleLeaderSaveDraft}
-            onBack={closeEditSpace}
             isSaving={
               isSubmittingDecisions ||
               isUpdatingDecisions ||

@@ -1,6 +1,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { AxiosError, AxiosHeaders } from "axios";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { configureStore } from "@reduxjs/toolkit";
+import { Provider } from "react-redux";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import authReducer from "../../../redux/slices/authSlice";
 import PicocWizard from "./PicocWizard";
 import PicocCanvas from "./PicocCanvas";
 import { emptyDraft, item, record } from "./picocTestUtils";
@@ -11,6 +15,12 @@ vi.mock("../../../services/picocWizardStateService", () => ({
 }));
 
 const service = vi.mocked(picocWizardStateService);
+
+function renderWizard(props: { projectId: string; canEdit: boolean }) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const store = configureStore({ reducer: { auth: authReducer } });
+  return render(<Provider store={store}><QueryClientProvider client={queryClient}><PicocWizard {...props} /></QueryClientProvider></Provider>);
+}
 
 describe("PicocCanvas (T-11)", () => {
   it("lists components in P–I–C–O–C order with provenance, N/A reason, and jump-to-step", () => {
@@ -54,7 +64,7 @@ describe("PicocWizard", () => {
     const saved = emptyDraft({ currentStep: "intent" });
     service.getState.mockResolvedValue(record(saved, { revision: 4 }));
     service.saveState.mockImplementation(async (_projectId, expectedRevision, state) => record(state, { revision: expectedRevision + 1 }));
-    render(<PicocWizard projectId="p1" canEdit />);
+    renderWizard({ projectId: "p1", canEdit: true });
 
     const topic = await screen.findByLabelText("Research topic");
     expect(screen.getByText("PICOC · Step 1/8")).toBeTruthy();
@@ -75,7 +85,7 @@ describe("PicocWizard", () => {
     service.saveState.mockRejectedValue(new AxiosError("conflict", "ERR", undefined, undefined, {
       status: 409, data: {}, statusText: "Conflict", headers: {}, config: { headers: new AxiosHeaders() },
     }));
-    render(<PicocWizard projectId="p1" canEdit />);
+    renderWizard({ projectId: "p1", canEdit: true });
 
     fireEvent.change(await screen.findByLabelText("Research topic"), { target: { value: "Edited" } });
     await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
@@ -92,7 +102,7 @@ describe("PicocWizard", () => {
   it("shows gate results with remediation on the review step and never shows a score", async () => {
     service.getState.mockResolvedValue(record(emptyDraft({ currentStep: "review" })));
     service.saveState.mockImplementation(async (_projectId, expectedRevision, state) => record(state, { revision: expectedRevision + 1 }));
-    render(<PicocWizard projectId="p1" canEdit />);
+    renderWizard({ projectId: "p1", canEdit: true });
 
     const gate = await screen.findByRole("list", { name: "Quality gate" });
     expect(within(gate).getByText("Blocked")).toBeTruthy();
@@ -113,7 +123,7 @@ describe("PicocWizard", () => {
       revision,
       qualityGate: [{ gateId: "G3", name: "Semantic consistency", status: "needs_review", reason: "AI suggestion — possibly misplaced: \"Krum\"", remediation: { step: "population", action: "Move it." } }],
     }));
-    render(<PicocWizard projectId="p1" canEdit />);
+    renderWizard({ projectId: "p1", canEdit: true });
 
     fireEvent.click(await screen.findByRole("button", { name: "Run AI consistency check (G3, G5)" }));
     expect(await screen.findByText(/possibly misplaced: "Krum"/)).toBeTruthy();
@@ -125,14 +135,14 @@ describe("PicocWizard", () => {
     service.getState.mockResolvedValue(record(emptyDraft({ currentStep: "review" })));
     service.saveState.mockImplementation(async (_projectId, expectedRevision, state) => record(state, { revision: expectedRevision + 1 }));
     service.semanticCheck.mockRejectedValue(new Error("network"));
-    render(<PicocWizard projectId="p1" canEdit />);
+    renderWizard({ projectId: "p1", canEdit: true });
     fireEvent.click(await screen.findByRole("button", { name: "Run AI consistency check (G3, G5)" }));
     expect(await screen.findByText("The AI check could not run. Try again later.")).toBeTruthy();
   });
 
   it("is read-only for members who are not the project leader", async () => {
     service.getState.mockResolvedValue(record(emptyDraft()));
-    render(<PicocWizard projectId="p1" canEdit={false} />);
+    renderWizard({ projectId: "p1", canEdit: false });
     expect(await screen.findByText(/The project leader defines the PICOC/)).toBeTruthy();
     expect(screen.queryByLabelText("Research topic")).toBeNull();
     expect(screen.getByRole("complementary", { name: "PICOC canvas" })).toBeTruthy();

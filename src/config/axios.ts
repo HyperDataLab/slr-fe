@@ -6,8 +6,8 @@ import { isTokenExpired } from "../utils/auth";
 import { authService } from "../services/authService";
 
 import { toastWarning } from "../utils/toast";
+import { API_BASE_URL } from "./apiUrls";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 const TIMEOUT = 30000;
 
 const api = axios.create({
