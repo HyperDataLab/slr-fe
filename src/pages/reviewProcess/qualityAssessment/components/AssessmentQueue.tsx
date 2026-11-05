@@ -73,7 +73,7 @@ export default function AssessmentQueue({
       </div>
 
       {/* List */}
-      <div className="min-h-0 min-w-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto p-3 sm:p-3.5">
+      <div className="custom-scrollbar min-h-0 min-w-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto p-3 sm:p-3.5">
         {papers.map((paper) => {
           const isSelected = selectedPaperId === paper.paperId;
 
@@ -90,25 +90,20 @@ export default function AssessmentQueue({
 
           let StatusIcon = FiClock;
           let iconColor = "text-text-secondary";
-          let barColor = "bg-bg-secondary";
 
           if (resolutionLabel === "HighQuality") {
             StatusIcon = FiCheckCircle;
             iconColor = "text-success";
-            barColor = "bg-success";
           } else if (resolutionLabel === "LowQuality") {
             StatusIcon = FiAlertCircle;
             iconColor = "text-error";
-            barColor = "bg-error";
           } else if (percentage === 100 && !isLeader) {
             // only show as completed if resolution is done for leaders, for non-leaders show as completed if assessment is done (100% completion)
             StatusIcon = FiCheckCircle;
             iconColor = "text-success";
-            barColor = "bg-success";
           } else if (percentage > 0) {
             StatusIcon = FiClock;
             iconColor = "text-accent";
-            barColor = "bg-primary";
           }
 
           return (
@@ -125,10 +120,10 @@ export default function AssessmentQueue({
                 }
               }}
               className={cn(
-                "w-full cursor-pointer select-none overflow-hidden rounded-xl border px-3.5 py-3 text-left outline-none transition-[background-color,border-color,box-shadow] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
+                "w-full cursor-pointer select-none overflow-hidden rounded-xl border px-3.5 py-3 text-left outline-none transition-[background-color,border-color] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40",
                 isSelected
-                  ? "border-primary/30 bg-primary-light shadow-[0_1px_4px_rgba(0,113,188,0.08)]"
-                  : "border-transparent bg-surface-white hover:border-border hover:bg-surface-white hover:shadow-sm",
+                  ? "border-primary/35 bg-primary-light"
+                  : "border-border/70 bg-surface-white hover:border-border hover:bg-bg-primary/60",
               )}
             >
               <div className="flex items-start gap-2">
@@ -147,18 +142,17 @@ export default function AssessmentQueue({
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-secondary">
                       <div
                         className={cn(
-                          "h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none",
-                          barColor,
+                          "h-full rounded-full bg-primary transition-[width] duration-200 motion-reduce:transition-none",
                         )}
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
                     {resolutionLabel === "HighQuality" ? (
-                      <span className="text-[10px] bg-success/10 text-success px-2 py-0.5 border border-success/20 rounded-full font-semibold">
+                      <span className="rounded-md bg-success/5 px-2 py-1 text-[11px] font-medium text-success">
                         High Quality
                       </span>
                     ) : resolutionLabel === "LowQuality" ? (
-                      <span className="text-[10px] bg-error/10 text-error px-2 py-0.5 border border-error/20 rounded-full font-semibold">
+                      <span className="rounded-md bg-error/5 px-2 py-1 text-[11px] font-medium text-error">
                         Low Quality
                       </span>
                     ) : (

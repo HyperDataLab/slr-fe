@@ -562,7 +562,9 @@ export const useReviewProcessWorkspace = ({
       } else if (phaseName === "prisma") {
         navigate(`/projects/${projectId}/processes/${processId}/prisma-report`);
       } else if (phaseName === "extraction") {
-        navigate(`/projects/${projectId}/extraction`);
+        navigate(`/projects/${projectId}/extraction`, {
+          state: { returnTo: `/projects/${projectId}/processes/${processId}` },
+        });
       }
     },
     [currentProjectMember, navigate, process, processId, projectId, queryClient],

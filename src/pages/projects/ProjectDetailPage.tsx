@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { getProjectRoleLabel, ProjectRole } from "../../types/project";
 import {
   useNavigate,
@@ -29,6 +30,7 @@ import SLRWorkflowOverview from "../../components/projects/detail/SLRWorkflowOve
 import ProjectSetupSection from "../../components/projects/detail/ProjectSetupSection";
 import PicocWizard from "../../components/projects/picocWizard/PicocWizard";
 import { picocWizardStateService } from "../../services/picocWizardStateService";
+import { projectQueryKeys } from "../../constants/projectQueryKeys";
 import BusinessJustificationSection from "../../components/projects/detail/BusinessJustificationSection";
 import PaperPoolTab from "../../components/paperPool/PaperPoolTab";
 import { useSelector } from "react-redux";
@@ -120,10 +122,7 @@ export default function ProjectDetailPage() {
     isSubmitting: isDocSubmitting,
   } = useDocuments(id);
 
-  const [isProjectSetupReady, setIsProjectSetupReady] = useState(false);
-  const [isProjectSetupChecking, setIsProjectSetupChecking] = useState(true);
-  const [isPicocScopeComplete, setIsPicocScopeComplete] = useState(false);
-  const [isPicocScopeChecking, setIsPicocScopeChecking] = useState(true);
+  const currentUserId = useSelector((state: RootState) => state.auth.user?.id ?? "anonymous");
   const [hasPassedReviewProtocol, setHasPassedReviewProtocol] = useState(
     () => readPhaseAProgress(id).reviewProtocolPassed,
   );
@@ -159,54 +158,26 @@ export default function ProjectDetailPage() {
     );
   };
 
-  const checkProjectSetupReady = useCallback(async () => {
-    if (!id) {
-      setIsProjectSetupReady(false);
-      setIsProjectSetupChecking(false);
-      return;
-    }
-
-    setIsProjectSetupChecking(true);
-    try {
-      const response = await aiProjectSetupService.getSetupDetails(id);
-      if (!response.isSuccess || !response.data) {
-        setIsProjectSetupReady(false);
-        return;
-      }
-
-      const data = response.data;
-      const hasSetup =
-        Boolean(data?.researchTopic?.trim()) ||
-        Boolean(data?.researchObjective?.trim()) ||
-        Boolean(data?.domain?.trim()) ||
-        Boolean(data?.picoc?.population?.trim()) ||
-        Boolean(data?.picoc?.intervention?.trim()) ||
-        Boolean(data?.picoc?.comparator?.trim()) ||
-        Boolean(data?.picoc?.outcome?.trim()) ||
-        Boolean(data?.picoc?.context?.trim()) ||
-        (data?.researchQuestions?.length ?? 0) > 0;
-
-      setIsProjectSetupReady(hasSetup);
-    } catch {
-      setIsProjectSetupReady(false);
-    } finally {
-      setIsProjectSetupChecking(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void checkProjectSetupReady();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [checkProjectSetupReady]);
-
-  const isReviewProtocolComplete = isPicocScopeComplete
-    && isProjectSetupReady
-    && hasPassedReviewProtocol;
+  const setupDetailsQuery = useQuery({
+    queryKey: projectQueryKeys.setupDetails(id || "", currentUserId),
+    queryFn: () => id ? aiProjectSetupService.getSetupDetails(id) : Promise.reject(new Error("Project ID required")),
+    enabled: Boolean(id),
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  const setupData = setupDetailsQuery.data?.isSuccess ? setupDetailsQuery.data.data : null;
+  const isProjectSetupReady = Boolean(
+    setupData?.researchTopic?.trim() ||
+    setupData?.researchObjective?.trim() ||
+    setupData?.domain?.trim() ||
+    setupData?.picoc?.population?.trim() ||
+    setupData?.picoc?.intervention?.trim() ||
+    setupData?.picoc?.comparator?.trim() ||
+    setupData?.picoc?.outcome?.trim() ||
+    setupData?.picoc?.context?.trim() ||
+    (setupData?.researchQuestions?.length ?? 0) > 0,
+  );
+  const isProjectSetupChecking = setupDetailsQuery.isLoading;
 
   useEffect(() => {
     if (!id) return;
@@ -220,35 +191,22 @@ export default function ProjectDetailPage() {
     }
   }, [id, hasPassedReviewProtocol, hasPassedReviewJustification]);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (projectLoading) return () => { cancelled = true; };
-    if (!id || project?.statusText !== "Draft") {
-      setIsPicocScopeComplete(false);
-      setIsPicocScopeChecking(false);
-      return () => { cancelled = true; };
-    }
-
-    setIsPicocScopeChecking(true);
-    void picocWizardStateService.getState(id)
-      .then((record) => {
-        if (cancelled) return;
-        const requiredGates = record.qualityGate.filter((gate) => gate.gateId === "G1" || gate.gateId === "G2");
-        setIsPicocScopeComplete(
-          record.currentStep === "review"
-          && requiredGates.length === 2
-          && requiredGates.every((gate) => gate.status === "passed"),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setIsPicocScopeComplete(false);
-      })
-      .finally(() => {
-        if (!cancelled) setIsPicocScopeChecking(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [id, project?.statusText, projectLoading]);
+  const picocStateQuery = useQuery({
+    queryKey: projectQueryKeys.picocWizardState(id || "", currentUserId),
+    queryFn: () => id ? picocWizardStateService.getState(id) : Promise.reject(new Error("Project ID required")),
+    enabled: Boolean(id && !projectLoading && project?.statusText === "Draft"),
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+  const requiredPicocGates = picocStateQuery.data?.qualityGate.filter((gate) => gate.gateId === "G1" || gate.gateId === "G2") ?? [];
+  const isPicocScopeComplete = picocStateQuery.data?.currentStep === "review"
+    && requiredPicocGates.length === 2
+    && requiredPicocGates.every((gate) => gate.status === "passed");
+  const isPicocScopeChecking = projectLoading
+    || (project?.statusText === "Draft" && picocStateQuery.isLoading);
+  const isReviewProtocolComplete = isPicocScopeComplete
+    && isProjectSetupReady
+    && hasPassedReviewProtocol;
 
   const workflowSteps: WorkflowStep[] = useMemo(() => {
     const getStatus = (stepKey: WorkflowStepKey): StepStatus => {
@@ -585,7 +543,6 @@ export default function ProjectDetailPage() {
                     setIsNeedModalOpen={setIsNeedModalOpen}
                     setIsDocModalOpen={setIsDocModalOpen}
                     setIsMemberModalOpen={setIsMemberModalOpen}
-                    onSetupSaved={() => void checkProjectSetupReady()}
                     onOpenWorkspace={() => setActiveMainSection("paper-pool")}
                   />
                 </div>
@@ -613,7 +570,7 @@ export default function ProjectDetailPage() {
     // ── Draft project workflow steps ───────────────────────────────────
     switch (selectedStep) {
       case "picoc-scope":
-        return <PicocWizard projectId={id || ""} canEdit={isLeader} onScopeCompletionChange={setIsPicocScopeComplete} />;
+        return <PicocWizard projectId={id || ""} canEdit={isLeader} />;
 
       case "business-justification":
         return (
@@ -639,7 +596,6 @@ export default function ProjectDetailPage() {
             projectDomain={project?.domain}
             isProjectSetupReady={isProjectSetupReady}
             onSetupSaved={() => {
-              setIsProjectSetupReady(true);
               setHasPassedReviewProtocol(true);
               setSelectedStep("business-justification");
             }}

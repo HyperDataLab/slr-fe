@@ -25,7 +25,9 @@ export const QUERY_KEYS = {
     invitations: (projectId: string, status?: number) =>
       ["projects", projectId, "invitations", { status }] as const,
     picocs: (projectId: string) => ["projects", projectId, "picocs"] as const,
-    myMembership: (projectId: string) => ["projects", projectId, "my-membership"] as const,
+    myMembership: (projectId: string, userId?: string) => userId
+      ? ["projects", projectId, "my-membership", { userId }] as const
+      : ["projects", projectId, "my-membership"] as const,
   },
 
   // Review & Workspace

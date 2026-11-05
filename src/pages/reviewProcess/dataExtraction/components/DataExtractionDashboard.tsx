@@ -21,7 +21,6 @@ import {
   FileCheck2,
   FileSpreadsheet,
   FileText,
-  Package,
   RefreshCw,
   Search,
   ArrowLeft,
@@ -35,7 +34,6 @@ import Checkbox from "../../../../components/ui/Checkbox";
 import Input from "../../../../components/ui/Input";
 import Modal from "../../../../components/ui/Modal";
 import TemplateWizard from "../../../../components/projects/protocol/wizard/TemplateWizard";
-import PaperViewerModal from "../../../../components/reviewProcess/leader/PaperViewerModal";
 import Select from "../../../../components/ui/Select";
 import BulkAssignmentPanelDataExtraction from "../../../../components/reviewProcess/leader/BulkAssignmentPanelDataExtraction";
 import { getErrorMessage } from "../../../../utils/errorUtils";
@@ -197,11 +195,7 @@ export default function DataExtractionDashboard({
       }),
     [ws.dashboardTasks],
   );
-  const [selectedPaper, setSelectedPaper] = useState<PaperResponse | null>(
-    null,
-  );
   const [selectedPaperIds, setSelectedPaperIds] = useState<string[]>([]);
-  const [isPaperDetailsOpen, setIsPaperDetailsOpen] = useState(false);
   const [reopenModalPaper, setReopenModalPaper] =
     useState<DashboardTask | null>(null);
   const [reopenReason, setReopenReason] = useState("");
@@ -229,6 +223,9 @@ export default function DataExtractionDashboard({
   const isProcessCompleted = useMemo(() => {
     return ws.extractionProcessStatus.trim().toLowerCase() === "completed";
   }, [ws.extractionProcessStatus]);
+  const hasEditableGridData = Boolean(
+    ws.editableGrid?.columns.length && ws.editableGrid.rows.length,
+  );
 
   const canCompletePhase = useMemo(
     () =>
@@ -303,17 +300,13 @@ export default function DataExtractionDashboard({
 
   const handleAssign = useCallback(
     (paperId: string, reviewer1Id: string, reviewer2Id: string) => {
-      if (isProcessCompleted) {
-        return;
-      }
-
       void ws.assignPaper(paperId, {
         reviewerIds: [reviewer1Id, reviewer2Id],
         templateId: ws.selectedTemplateId,
       });
       setAssignModalTask(null);
     },
-    [isProcessCompleted, ws],
+    [ws],
   );
 
   const handleSearchChange = useCallback(
@@ -364,25 +357,15 @@ export default function DataExtractionDashboard({
 
   const handleOpenPaperDetails = useCallback(
     (paperId: string) => {
-      if (isProcessCompleted) {
-        return;
-      }
-
       const paper = paperDetailsById[paperId];
-      if (!paper) {
+      if (!paper || !ws.projectId) {
         return;
       }
 
-      setSelectedPaper(paper);
-      setIsPaperDetailsOpen(true);
+      navigate(`/projects/${ws.projectId}/papers/${encodeURIComponent(paperId)}`);
     },
-    [isProcessCompleted, paperDetailsById],
+    [navigate, paperDetailsById, ws.projectId],
   );
-
-  const handleClosePaperDetails = useCallback(() => {
-    setIsPaperDetailsOpen(false);
-    setSelectedPaper(null);
-  }, []);
 
   const handleOpenTask = useCallback(
     (task: DashboardTask) => {
@@ -577,12 +560,12 @@ export default function DataExtractionDashboard({
   }, [isProcessCompleted, ws]);
 
   const handleOpenGridWorkspace = useCallback(() => {
-    if (isProcessCompleted) {
+    if (isProcessCompleted || ws.isGridLoading || !hasEditableGridData) {
       return;
     }
 
     navigate(`${dashboardPath}/grid`);
-  }, [dashboardPath, isProcessCompleted, navigate]);
+  }, [dashboardPath, hasEditableGridData, isProcessCompleted, navigate, ws.isGridLoading]);
 
 
   const tableColSpan = ws.isCurrentUserLeader ? 5 : 4;
@@ -648,8 +631,6 @@ export default function DataExtractionDashboard({
       setReopenModalPaper(null);
       setIsTemplateWizardOpen(false);
       setIsCompletePhaseModalOpen(false);
-      setIsPaperDetailsOpen(false);
-      setSelectedPaper(null);
     }
   }, [isProcessCompleted]);
 
@@ -692,44 +673,30 @@ export default function DataExtractionDashboard({
     <div className="min-h-full bg-bg-primary">
       <header className="border-b border-border bg-surface-white">
         <div className="mx-auto flex max-w-[1520px] flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              onClick={ws.handleBack}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-              title="Back to Process Workspace"
-              aria-label="Back to Process Workspace"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
-              <Package className="h-6 w-6" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="review-process-header-title line-clamp-2 text-base font-semibold leading-5 text-text-primary sm:text-lg">
-                {ws.selectedTemplate?.name || "Study extraction"}
-              </h1>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                <span className="text-xs text-text-secondary">
-                  Data extraction / {ws.isCurrentUserLeader ? "Leader view" : "Reviewer view"}
-                </span>
-                <span className="h-1 w-1 rounded-full bg-text-muted" aria-hidden="true" />
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    ws.extractionProcessStatus === "InProgress"
-                      ? "bg-success/10 text-success"
-                      : ws.extractionProcessStatus === "Completed"
-                        ? "bg-primary-light text-primary"
-                        : "bg-bg-secondary text-text-secondary"
-                  }`}
-                >
-                  {extractionStatusLabel}
-                </span>
-              </div>
+          <div className="min-w-0">
+            <h1 className="review-process-header-title line-clamp-2 text-base font-semibold leading-5 text-text-primary sm:text-lg">
+              {ws.selectedTemplate?.name || "Study extraction"}
+            </h1>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-text-secondary">
+                Data extraction / {ws.isCurrentUserLeader ? "Leader view" : "Reviewer view"}
+              </span>
+              <span className="h-1 w-1 rounded-full bg-text-muted" aria-hidden="true" />
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  ws.extractionProcessStatus === "InProgress"
+                    ? "bg-success/10 text-success"
+                    : ws.extractionProcessStatus === "Completed"
+                      ? "bg-primary-light text-primary"
+                      : "bg-bg-secondary text-text-secondary"
+                }`}
+              >
+                {extractionStatusLabel}
+              </span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 pl-12 sm:pl-14 lg:gap-5 lg:pl-0">
+          <div className="flex flex-wrap items-center gap-3 lg:gap-5">
             <div className="text-xs text-text-secondary">
               <div className="text-[10px] font-medium text-text-muted">Studies</div>
               <div className="mt-0.5 font-medium text-text-primary">
@@ -772,6 +739,17 @@ export default function DataExtractionDashboard({
           </div>
         </div>
       </header>
+
+      <nav className="mx-auto w-full max-w-[1520px] px-4 pt-4 sm:px-6 lg:px-8" aria-label="Breadcrumb">
+        <button
+          type="button"
+          onClick={ws.handleBack}
+          className="inline-flex min-h-9 items-center gap-2 text-sm text-text-secondary transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+        >
+          <ArrowLeft className="h-[17px] w-[17px]" aria-hidden="true" />
+          Back to project
+        </button>
+      </nav>
 
       <div className="mx-auto max-w-[1520px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <SlrArtifactsHandoffBanner projectId={ws.projectId} statuses={tasks.map((task) => task.status)} />
@@ -861,7 +839,7 @@ export default function DataExtractionDashboard({
                   </div>
                 </div>
                 <div
-                  className="h-2.5 w-full overflow-hidden rounded-full bg-bg-secondary"
+                  className="h-1.5 w-full overflow-hidden rounded-full bg-bg-secondary"
                   role="progressbar"
                   aria-label="Extraction progress"
                   aria-valuemin={0}
@@ -890,7 +868,6 @@ export default function DataExtractionDashboard({
               role="tab"
               aria-selected={activeViewTab === "queue"}
               onClick={() => setActiveViewTab("queue")}
-              disabled={isProcessCompleted}
               className={`inline-flex min-h-11 items-center border-b-2 px-1 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/30 ${
                 activeViewTab === "queue"
                   ? "border-primary text-primary"
@@ -960,12 +937,18 @@ export default function DataExtractionDashboard({
                       <Button
                         variant="outline"
                         onClick={handleOpenGridWorkspace}
-                        disabled={isProcessCompleted}
+                        disabled={isProcessCompleted || ws.isGridLoading || !hasEditableGridData}
+                        title={!ws.isGridLoading && !hasEditableGridData ? "Assign reviewers and choose an extraction template to populate the grid." : undefined}
                         className="w-full lg:w-auto"
                       >
                         <Eye className="mr-2 h-4 w-4" />
-                        Open Grid
+                        Review in spreadsheet
                       </Button>
+                      {!ws.isGridLoading && !hasEditableGridData && !isProcessCompleted && (
+                        <span className="self-center text-xs text-text-secondary sm:max-w-52">
+                          Assign reviewers and choose a template to enable the grid.
+                        </span>
+                      )}
 
                       <div
                         className="relative w-full lg:w-auto"
@@ -1148,7 +1131,6 @@ export default function DataExtractionDashboard({
                               size="sm"
                               className="mt-2 min-h-11"
                               onClick={() => setAssignModalTask(task)}
-                              disabled={isProcessCompleted}
                             >
                               <UserPlus className="mr-1.5 h-4 w-4" />
                               Assign reviewers
@@ -1395,7 +1377,6 @@ export default function DataExtractionDashboard({
                                     <button
                                       type="button"
                                       onClick={() => setAssignModalTask(task)}
-                                      disabled={isProcessCompleted}
                                       className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-dashed border-border px-3 text-xs font-medium text-text-secondary transition-colors hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                                       title="Click to assign reviewers"
                                     >
@@ -1634,13 +1615,6 @@ export default function DataExtractionDashboard({
             </>
           ) : null}
       </div>
-
-      <PaperViewerModal
-        paper={selectedPaper}
-        isOpen={isPaperDetailsOpen}
-        onClose={handleClosePaperDetails}
-        hideActions
-      />
 
       <AssignReviewersModal
         key={assignModalTask?.paperId ?? "assign-reviewers-modal"}

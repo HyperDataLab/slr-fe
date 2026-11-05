@@ -125,6 +125,8 @@ export default function AssignReviewersModal({
                 }
               }}
               options={reviewer1Options}
+              searchable
+              searchPlaceholder="Search reviewers..."
               className="text-sm"
             />
           </div>
@@ -143,6 +145,8 @@ export default function AssignReviewersModal({
                 }
               }}
               options={reviewer2Options}
+              searchable
+              searchPlaceholder="Search reviewers..."
               className="text-sm"
             />
           </div>

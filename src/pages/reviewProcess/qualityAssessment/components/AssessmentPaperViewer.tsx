@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ChevronDown, CircleAlert } from "lucide-react";
 import QAPaperDetails from "./QAPaperDetails";
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
 import type { WorkspaceQAPaper } from "../QualityAssessmentWorkspace";
@@ -34,7 +35,12 @@ export default function AssessmentPaperViewer({
   const [highlightToRemove, setHighlightToRemove] = useState<number | null>(
     null,
   );
+  const [isPdfExpanded, setIsPdfExpanded] = useState(true);
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
+
+  useEffect(() => {
+    setIsPdfExpanded(true);
+  }, [paper?.paperId]);
 
   const renderHighlights = (props: RenderHighlightsProps) => (
     <div>
@@ -132,7 +138,7 @@ export default function AssessmentPaperViewer({
   });
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col overflow-y-auto bg-bg-primary/50">
+    <div className="custom-scrollbar flex h-full min-w-0 flex-1 flex-col overflow-y-auto bg-white">
       <ConfirmModal
         isOpen={highlightToRemove !== null}
         onClose={() => setHighlightToRemove(null)}
@@ -146,25 +152,39 @@ export default function AssessmentPaperViewer({
         message="Are you sure you want to remove this highlight?"
       />
       {paper ? (
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6 xl:p-8">
-          <div className="rounded-2xl border border-border bg-surface-white p-5 shadow-[0_1px_3px_rgba(18,35,49,0.04)] sm:p-7">
+        <div className="flex w-full flex-col p-4 sm:px-5 sm:py-5 xl:px-7 xl:py-6">
+          <div className="min-w-0">
             <QAPaperDetails paper={paper} />
           </div>
 
           {paper.pdfUrl && (
-            <div className="mt-1 flex h-[min(72vh,800px)] min-h-[480px] flex-col overflow-hidden rounded-2xl border border-border bg-surface-white shadow-sm">
-              <div className="flex-none border-b border-border bg-surface-white px-5 py-4 sm:px-6">
-                <h3 className="text-sm font-semibold text-text-primary">
-                  Full Text PDF
-                </h3>
-              </div>
-              <div className="relative w-full flex-1 overflow-hidden bg-bg-secondary">
+            <section aria-labelledby="full-text-heading" className="mt-3 border-t border-border pt-2">
+              <button type="button" aria-label={isPdfExpanded ? "Collapse full text PDF" : "Expand full text PDF"} aria-expanded={isPdfExpanded} aria-controls={isPdfExpanded ? "full-text-reader" : undefined} onClick={() => setIsPdfExpanded((expanded) => !expanded)} className="flex min-h-10 w-full items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">
+                <span className="flex items-center gap-2">
+                  <span id="full-text-heading" className="text-sm font-semibold text-text-primary">Full text</span>
+                  <span className="text-xs text-text-secondary">PDF reader</span>
+                </span>
+                <ChevronDown size={17} aria-hidden="true" className={`shrink-0 text-text-muted transition-transform duration-150 motion-reduce:transition-none ${isPdfExpanded ? "rotate-180" : ""}`} />
+              </button>
+              {isPdfExpanded && <div id="full-text-reader" className="relative mt-2 flex h-[min(72vh,860px)] min-h-[460px] w-full flex-col overflow-hidden bg-white">
                 <Worker
                   workerUrl={PDF_WORKER_URL}
                 >
                   <div className="absolute inset-0 font-sans">
                     <Viewer
                       fileUrl={paper.pdfUrl}
+                      renderError={(error) => (
+                        <div
+                          role="alert"
+                          title={error.message}
+                          className="flex min-h-full items-center justify-center p-4"
+                        >
+                          <div className="flex max-w-sm flex-col items-center gap-2 text-center">
+                            <CircleAlert size={20} className="shrink-0 text-error/70" aria-hidden="true" />
+                            <span className="text-sm text-error/80">Unable to load this PDF. Check your connection and try again.</span>
+                          </div>
+                        </div>
+                      )}
                       plugins={[
                         defaultLayoutPluginInstance,
                         highlightPluginInstance,
@@ -172,8 +192,8 @@ export default function AssessmentPaperViewer({
                     />
                   </div>
                 </Worker>
-              </div>
-            </div>
+              </div>}
+            </section>
           )}
         </div>
       ) : (

@@ -24,6 +24,24 @@ export const ToastProvider: React.FC<{ children?: React.ReactNode }> = ({
           style: {
             maxWidth: "450px",
           },
+          error: {
+            style: {
+              maxWidth: "min(450px, calc(100vw - 32px))",
+              minHeight: "40px",
+              padding: "10px 14px",
+              border: "1px solid var(--color-border)",
+              borderRadius: "8px",
+              background: "var(--color-surface-white)",
+              color: "var(--color-text-primary)",
+              boxShadow: "0 3px 10px rgb(18 35 49 / 8%)",
+              fontSize: "13px",
+              fontWeight: 500,
+            },
+            iconTheme: {
+              primary: "#DC2626",
+              secondary: "#FFFFFF",
+            },
+          },
         }}
       />
     </>

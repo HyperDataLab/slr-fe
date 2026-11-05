@@ -63,6 +63,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@tanstack/react-query-devtools": "^5.105.3",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@types/d3-force": "^3.0.10",

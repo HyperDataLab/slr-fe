@@ -36,6 +36,7 @@ import type {
   ExtractionTemplateResponseDto,
 } from "../../../../../types/dataExtraction";
 import { getErrorMessage } from "../../../../../utils/errorUtils";
+import { formatDate } from "../../../../../utils/dateFormat";
 import { toastError, toastSuccess } from "../../../../../utils/toast";
 import EditableGridCell from "./EditableGridCell";
 import "ag-grid-community/styles/ag-grid.css";
@@ -575,6 +576,13 @@ export default function ExtractionGridWorkspace() {
 
   const hasData =
     enrichedGridData.columns.length > 0 && enrichedGridData.rows.length > 0;
+  const gridContentHeight = 88 + agRowData.length * rowHeight;
+  const extractionStatusLabel =
+    ws.extractionProcessStatus === "InProgress"
+      ? "Active"
+      : ws.extractionProcessStatus === "NotStarted"
+        ? "Not started"
+        : ws.extractionProcessStatus;
 
   if (ws.isGridLoading && !ws.editableGrid) {
     return (
@@ -595,42 +603,99 @@ export default function ExtractionGridWorkspace() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary px-6 py-8">
-      <div className="mx-auto max-w-[96rem] space-y-4">
-        <div className="relative z-50 rounded-xl border border-white/70 bg-surface-white/85 px-5 py-4 shadow-none shadow-slate-200/40 backdrop-blur">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-text-primary">
-                Extraction Grid Workspace
-              </h1>
-              <p className="mt-1 text-sm text-text-secondary">
-                Review and standardize reviewer submissions before leader consensus.
-              </p>
-              <p className="mt-2 text-xs text-text-secondary lg:hidden">
+    <div className="min-h-screen bg-bg-primary">
+      <header className="border-b border-border bg-surface-white">
+        <div className="mx-auto flex max-w-[1520px] flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <div className="min-w-0">
+            <h1 className="review-process-header-title line-clamp-2 text-base font-semibold leading-5 text-text-primary sm:text-lg">
+              Extraction Grid Workspace
+            </h1>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-text-secondary">Data extraction / Leader view</span>
+              <span className="h-1 w-1 rounded-full bg-text-muted" aria-hidden="true" />
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  ws.extractionProcessStatus === "InProgress"
+                    ? "bg-success/10 text-success"
+                    : ws.extractionProcessStatus === "Completed"
+                      ? "bg-primary-light text-primary"
+                      : "bg-bg-secondary text-text-secondary"
+                }`}
+              >
+                {extractionStatusLabel}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 lg:gap-5">
+            <div className="text-xs text-text-secondary">
+              <div className="text-[10px] font-medium text-text-muted">Studies</div>
+              <div className="mt-0.5 font-medium text-text-primary">
+                {ws.dashboardTotalCount} visible
+              </div>
+            </div>
+            <div className="hidden h-8 w-px bg-border sm:block" aria-hidden="true" />
+            <div className="text-xs text-text-secondary">
+              <div className="text-[10px] font-medium text-text-muted">Started</div>
+              <div className="mt-0.5 font-medium text-text-primary">
+                {formatDate(ws.extractionProcessStartedAt)}
+              </div>
+            </div>
+            <div className="hidden h-8 w-px bg-border sm:block" aria-hidden="true" />
+            <div className="text-xs text-text-secondary">
+              <div className="text-[10px] font-medium text-text-muted">Last updated</div>
+              <div className="mt-0.5 font-medium text-text-primary">
+                {formatDate(ws.extractionProcessLastUpdatedAt)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <nav className="mx-auto w-full max-w-[1520px] px-4 pt-4 sm:px-6 lg:px-8" aria-label="Breadcrumb">
+        <button
+          type="button"
+          onClick={() => navigate(dashboardPath)}
+          className="inline-flex min-h-9 items-center gap-2 text-sm text-text-secondary transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+        >
+          <ArrowLeft className="h-[17px] w-[17px]" aria-hidden="true" />
+          Back to Dashboard
+        </button>
+      </nav>
+
+      <div className="mx-auto max-w-[1520px] space-y-4 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-text-secondary">
+              {hasData
+                ? "Review and standardize reviewer submissions before leader consensus."
+                : "The grid becomes available after a paper has a template and reviewer assignment."}
+            </p>
+            {hasData && (
+              <p className="mt-1 text-xs text-text-secondary lg:hidden">
                 Swipe the grid horizontally to view all extraction fields.
               </p>
-            </div>
+            )}
+          </div>
 
-            <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 xl:flex">
-              <Button variant="outline" onClick={() => navigate(dashboardPath)}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Dashboard
-              </Button>
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
 
-              <Button
-                variant="outline"
-                onClick={handleRefreshGrid}
-                disabled={ws.isGridLoading}
-              >
-                <RefreshCw
-                  aria-hidden="true"
-                  className={`mr-2 h-4 w-4 ${ws.isGridLoading ? "motion-safe:animate-spin motion-reduce:animate-none" : ""}`}
-                />
-                Refresh Grid
-              </Button>
+              {hasData && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleRefreshGrid}
+                    disabled={ws.isGridLoading}
+                  >
+                    <RefreshCw
+                      aria-hidden="true"
+                      className={`mr-2 h-4 w-4 ${ws.isGridLoading ? "motion-safe:animate-spin motion-reduce:animate-none" : ""}`}
+                    />
+                    Refresh Grid
+                  </Button>
 
-              <div className="grid grid-cols-1 gap-2 rounded-xl border border-border bg-surface-white px-3 py-2 lg:flex lg:flex-wrap lg:items-center">
-                <div className="flex min-w-0 items-center gap-2 lg:flex-1">
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface-white px-2.5 py-1">
+                <div className="flex min-w-0 items-center gap-2">
                   <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                     Row Height
                   </span>
@@ -640,22 +705,22 @@ export default function ExtractionGridWorkspace() {
                     max={MAX_GRID_ROW_HEIGHT}
                     value={rowHeight}
                     onChange={(event) => setRowHeight(Number(event.target.value))}
-                    className="h-11 min-w-20 flex-1 cursor-pointer accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 lg:w-28 lg:flex-none"
+                    className="h-8 w-24 cursor-pointer accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                     aria-label="Grid row height"
                   />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setRowHeight(72)}
-                    className="min-h-11 rounded-xl border border-border px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    className="min-h-9 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     Comfort
                   </button>
                   <button
                     type="button"
                     onClick={() => setRowHeight(DEFAULT_GRID_ROW_HEIGHT)}
-                    className="min-h-11 rounded-xl border border-border px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    className="min-h-9 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     Reset
                   </button>
@@ -663,9 +728,9 @@ export default function ExtractionGridWorkspace() {
                     {rowHeight}px
                   </span>
                 </div>
-              </div>
+                  </div>
 
-              <div className="relative z-50" ref={exportMenuRef}>
+                  <div className="relative z-50" ref={exportMenuRef}>
                 <Button
                   onClick={() => setIsExportMenuOpen((current) => !current)}
                   disabled={isExporting || !projectId}
@@ -713,9 +778,10 @@ export default function ExtractionGridWorkspace() {
                       document.body,
                     )
                   : null}
-              </div>
+                  </div>
+                </>
+              )}
             </div>
-          </div>
         </div>
 
         {ws.error ? (
@@ -724,11 +790,13 @@ export default function ExtractionGridWorkspace() {
           </div>
         ) : null}
 
-        <div
-          className="rounded-xl border border-border bg-surface-white shadow-none"
-          style={{ height: "calc(100vh - 200px)" }}
-        >
-          {hasData ? (
+        {hasData ? (
+          <div
+            className="rounded-xl border border-border bg-surface-white shadow-none"
+            style={{
+              height: `max(280px, min(calc(100vh - 200px), ${gridContentHeight}px))`,
+            }}
+          >
             <div className="ag-theme-quartz h-full w-full">
               <AgGridReact<AgGridRowData>
                 ref={gridRef}
@@ -739,25 +807,26 @@ export default function ExtractionGridWorkspace() {
                 rowHeight={rowHeight}
                 headerHeight={56}
                 groupHeaderHeight={28}
-                animateRows
                 stopEditingWhenCellsLoseFocus
                 suppressDragLeaveHidesColumns
               />
             </div>
-          ) : (
-            <div className="flex h-full items-center justify-center px-6 text-center">
-              <div>
-                <p className="text-base font-semibold text-text-primary">
-                  No grid data available
-                </p>
-                <p className="mt-1 text-sm text-text-secondary">
-                  Complete extraction tasks first, then open this workspace to
-                  standardize values.
-                </p>
+          </div>
+        ) : (
+          <section className="flex min-h-[280px] items-center justify-center rounded-xl border border-border bg-surface-white px-6 py-10 text-center">
+            <div className="max-w-lg">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-light text-primary">
+                <FileSpreadsheet aria-hidden="true" className="h-6 w-6" />
               </div>
+              <h2 className="text-base font-semibold text-text-primary">
+                Grid data isn’t ready yet
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-text-secondary">
+                Assign reviewers and choose an extraction template for an included paper. Its fields will appear here once the assignment is ready.
+              </p>
             </div>
-          )}
-        </div>
+          </section>
+        )}
       </div>
     </div>
   );

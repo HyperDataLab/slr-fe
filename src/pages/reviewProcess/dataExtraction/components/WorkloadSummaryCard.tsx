@@ -1,5 +1,5 @@
 import Card from "../../../../components/ui/Card";
-import { Clock3, Target, TrendingUp, Users } from "lucide-react";
+import { Clock3, TrendingUp } from "lucide-react";
 import type { UseDataExtractionWorkspaceReturn } from "../types";
 
 interface WorkloadSummaryCardProps {
@@ -93,66 +93,45 @@ export default function WorkloadSummaryCard({
   }
 
   return (
-    <Card className="overflow-hidden rounded-xl border-border bg-white shadow-none">
-      <div className="space-y-4 p-4 sm:p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary-light px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-              {isLeader ? (
-                <Users className="h-3.5 w-3.5" />
-              ) : (
-                <Target className="h-3.5 w-3.5" />
-              )}
-              {isLeader ? "Team View" : "Personal View"}
-            </div>
-            <h2 className="mt-3 text-xl font-semibold text-text-primary">
+    <Card className="overflow-hidden rounded-xl border-border bg-white p-4 shadow-none sm:p-4">
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-text-primary">
               {title}
             </h2>
-            <p className="mt-2 max-w-3xl text-sm text-text-secondary">
+            <p className="mt-1 max-w-3xl text-sm text-text-secondary">
               {description}
             </p>
           </div>
 
-          <div className="text-right">
+          <div className="shrink-0 sm:text-right">
             <p className="text-xs font-medium text-text-secondary">
               {isLeader ? "Overall Progress" : "My Progress"}
             </p>
-            <p className="mt-1 text-2xl font-semibold text-text-primary">
+            <p className="mt-0.5 text-xl font-semibold text-text-primary">
               {Math.round(progressValue)}%
             </p>
           </div>
         </div>
 
-        <div className="space-y-2 border-y border-border py-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium text-text-primary">
-              {isLeader ? "Global completion" : "Your completion"}
-            </span>
-            <span className="font-semibold text-text-primary">
-              {Math.round(progressValue)}%
-            </span>
-          </div>
+        <div className="py-1">
           <div className="h-1.5 overflow-hidden rounded-full bg-bg-secondary">
             <div
               className="h-full rounded-full bg-primary transition-[width] duration-150"
               style={{ width: `${progressValue}%` }}
             />
           </div>
-          <p className="text-xs text-text-secondary">
-            {isLeader
-              ? "This reflects completion across the full extraction workload."
-              : `You have completed ${personalWorkload?.completed ?? 0} out of ${personalWorkload?.totalAssigned ?? 0} assigned studies.`}
-          </p>
         </div>
 
         {isLeader ? (
-          <div className="max-h-[300px] overflow-y-auto border-y border-border">
-            <div className="divide-y divide-border">
+          <div className={reviewerWorkloads.length > 0 ? "max-h-[300px] overflow-y-auto border-y border-border" : ""}>
+            <div className={reviewerWorkloads.length > 0 ? "divide-y divide-border" : ""}>
               {reviewerWorkloads.length === 0 ? (
-                <div className="px-4 py-5 text-sm text-text-secondary">
+                <p className="text-sm text-text-secondary">
                   Reviewer workload details will appear here once assignments
                   are available.
-                </div>
+                </p>
               ) : (
                 reviewerWorkloads.map((workload) => {
                   const reviewerProgress = getCompletionPercentage(

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { QUERY_KEYS } from "../constants/queryKeys";
 import { auditLogService } from "../services/auditLogService";
 import { getErrorMessage } from "../utils/errorUtils";
@@ -9,6 +9,7 @@ export const useAdminAuditLogs = (params?: AuditLogQueryParams) => {
     queryKey: QUERY_KEYS.auditLogs.admin(params),
     queryFn: () => auditLogService.getAdminAuditLogs(params),
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   return {
@@ -29,6 +30,7 @@ export const useProjectLeaderAuditLogs = (projectId: string | undefined, params?
         : Promise.reject("No project ID"),
     enabled: !!projectId,
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   return {

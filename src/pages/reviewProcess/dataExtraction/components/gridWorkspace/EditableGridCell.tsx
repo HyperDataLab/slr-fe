@@ -336,7 +336,7 @@ export default function EditableGridCell({
             </span>
           )}
 
-          <span className="absolute right-0 top-0 z-10 flex h-full items-center gap-0.5 bg-gradient-to-l from-surface-white via-surface-white to-transparent pl-5 pr-1">
+          <span className="absolute right-0 top-0 z-10 flex h-full items-center gap-0.5 bg-transparent pl-1 pr-1">
             {isSaving ? (
               <Loader2 aria-hidden="true" className="h-3.5 w-3.5 motion-safe:animate-spin motion-reduce:animate-none text-accent" />
             ) : null}
@@ -345,7 +345,7 @@ export default function EditableGridCell({
               <button
                 type="button"
                 onClick={() => setIsHistoryOpen(true)}
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-white text-text-secondary opacity-0 shadow-sm transition-[opacity,color,background-color,border-color] duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:border-primary/30 hover:bg-primary-light hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 motion-reduce:transition-none"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-white text-text-secondary opacity-0 transition-[opacity,color,background-color,border-color] duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:border-primary/30 hover:bg-primary-light hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 motion-reduce:transition-none"
                 aria-label={`View history for ${columnMeta.headerName}`}
                 title="View cell history"
               >
@@ -357,7 +357,7 @@ export default function EditableGridCell({
               <button
                 type="button"
                 onClick={beginEdit}
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-white text-text-secondary opacity-0 shadow-sm transition-[opacity,color,background-color,border-color] duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:border-primary/30 hover:bg-primary-light hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 motion-reduce:transition-none"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-white text-text-secondary opacity-0 transition-[opacity,color,background-color,border-color] duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:border-primary/30 hover:bg-primary-light hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 motion-reduce:transition-none"
                 aria-label={`Edit ${columnMeta.headerName}`}
                 title="Edit cell"
               >

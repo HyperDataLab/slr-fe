@@ -6,8 +6,12 @@
   color: var(--color-primary-hover);
 }
 
-.ag-theme-quartz .ag-header-group-cell:hover {
-  background-color: var(--color-bg-selected);
+.ag-theme-quartz {
+  --ag-row-hover-color: var(--color-primary-light);
+}
+
+.ag-theme-quartz .ag-row-hover .ag-cell {
+  background-color: transparent;
 }
 
 .ag-theme-quartz .ag-header-cell {

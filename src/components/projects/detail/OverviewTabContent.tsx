@@ -29,7 +29,7 @@ interface OverviewTabContentProps {
   setIsNeedModalOpen: (open: boolean) => void;
   setIsDocModalOpen: (open: boolean) => void;
   setIsMemberModalOpen: (open: boolean) => void;
-  onSetupSaved: () => void;
+  onSetupSaved?: () => void;
   onOpenWorkspace: () => void;
 }
 

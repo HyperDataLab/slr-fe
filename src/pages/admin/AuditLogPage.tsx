@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FiDownload,
   FiRefreshCw,
@@ -37,7 +37,6 @@ const initialFilters: AuditLogFiltersState = {
 };
 
 const AuditLogPage: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<AuditLogFiltersState>(initialFilters);
   const [sortField, setSortField] = useState<AuditLogSortField>("timestamp");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -65,12 +64,7 @@ const AuditLogPage: React.FC = () => {
     useAdminAuditLogs(queryParams);
   const { users: systemUsers } = useUsers({ pageNumber: 1, pageSize: 100 });
 
-  const isPageLoading = isLoading || isLoadingLogs;
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setIsLoading(false), 900);
-    return () => window.clearTimeout(timer);
-  }, []);
+  const isPageLoading = isLoadingLogs;
 
   const logs = useMemo(
     () => auditLogsResponse?.data?.items || [],
@@ -235,7 +229,7 @@ const AuditLogPage: React.FC = () => {
           />
         }
         logs={pageLogs}
-        isLoading={isLoading}
+        isLoading={isLoadingLogs}
         totalCount={totalCount}
         currentPage={activePage}
         totalPages={totalPages}
