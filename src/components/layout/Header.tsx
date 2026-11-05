@@ -6,6 +6,7 @@ import {
   FiLayers,
   FiBookOpen,
   FiUser,
+  FiKey,
   FiLogOut,
   FiShield,
 } from "react-icons/fi";
@@ -319,6 +320,18 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen = false, hid
                           <span>
                             <span className="block text-[11px] font-bold">Profile</span>
                             <span className="mt-0.5 block text-[9px] text-text-muted">View your account</span>
+                          </span>
+                        </Link>
+
+                        <Link
+                          to="/profile/api-keys"
+                          onClick={() => setShowUserDropdown(false)}
+                          className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-text-secondary transition-colors hover:bg-primary-light hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
+                        >
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-light text-accent"><FiKey className="h-4 w-4" /></span>
+                          <span>
+                            <span className="block text-[11px] font-bold">API Keys</span>
+                            <span className="mt-0.5 block text-[9px] text-text-muted">Manage API access</span>
                           </span>
                         </Link>
 

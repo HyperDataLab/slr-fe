@@ -387,7 +387,7 @@ export default function QualityAssessmentWorkspace() {
               type="button"
               variant="outline"
               onClick={() => setIsAutoResolveOpen(true)}
-              className="h-12 min-h-12 border-accent/30 bg-primary-light px-3 text-xs font-medium text-accent hover:bg-primary-light"
+              className="h-11 min-h-11 border-accent/20 bg-primary-light px-3 text-xs font-medium text-accent hover:bg-primary-light"
             >
               Auto-Resolve
             </Button>
@@ -404,67 +404,65 @@ export default function QualityAssessmentWorkspace() {
           </div>
         </main>
       ) : viewMode === "list" ? (
-        <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-5 overflow-auto px-5 py-5 sm:px-6 lg:gap-6 lg:px-8">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight text-text-primary">
-                Assessment workspace
-              </h2>
-              <p className="mt-1 text-sm text-text-secondary">
-                Assign studies, track reviewer progress, and resolve assessments.
-              </p>
-            </div>
-          </div>
-
-          <section aria-label="Assessment progress" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-            <div className="flex items-center justify-between rounded-xl border border-border bg-surface-white p-4 sm:p-5">
+        <main className="mx-auto flex w-full max-w-[1680px] flex-1 flex-col gap-5 overflow-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+          <section className="relative isolate overflow-hidden rounded-2xl border border-accent/15 bg-primary-light/70 px-5 py-5 sm:px-6 sm:py-6">
+            <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full border border-accent/10" />
+            <div aria-hidden="true" className="pointer-events-none absolute -right-4 -top-16 h-48 w-48 rounded-full border border-accent/10" />
+            <div className="relative flex items-center gap-4">
+              <span className="h-12 w-1 shrink-0 rounded-full bg-primary" />
               <div>
-                <p className="text-sm text-text-secondary">Total studies</p>
-                <p className="mt-2 text-2xl font-semibold leading-none text-text-primary">{stats.total}</p>
-                <p className="mt-2 text-xs text-text-secondary">Included for quality review</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
+                  {isLeader ? "Quality review · Leader workspace" : "Quality review · Reviewer workspace"}
+                </p>
+                <h2 className="mt-1 text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
+                  Assessment workspace
+                </h2>
+                <p className="mt-1.5 max-w-2xl text-sm leading-6 text-text-secondary">
+                  {isLeader
+                    ? "Assign studies, follow reviewer progress, and resolve each assessment."
+                    : "Work through your assigned studies and submit each assessment."}
+                </p>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-bg-primary text-text-secondary"><Files size={19} /></div>
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-success/20 bg-surface-white p-4 sm:p-5">
-              <div>
-                <p className="text-sm text-text-secondary">Completed</p>
-                <p className="mt-2 text-2xl font-semibold leading-none text-text-primary">{stats.completed}</p>
-                <p className="mt-2 text-xs text-text-secondary">Assessment submitted</p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10 text-success"><CheckCircle2 size={19} /></div>
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-accent/30 bg-surface-white p-4 sm:p-5">
-              <div>
-                <p className="text-sm text-text-secondary">In progress</p>
-                <p className="mt-2 text-2xl font-semibold leading-none text-text-primary">{stats.inProgress}</p>
-                <p className="mt-2 text-xs text-text-secondary">Reviewer work underway</p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-light text-accent"><Clock3 size={19} /></div>
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-warning/20 bg-surface-white p-4 sm:p-5">
-              <div>
-                <p className="text-sm text-text-secondary">{isLeader ? "Not started" : "Pending"}</p>
-                <p className="mt-2 text-2xl font-semibold leading-none text-text-primary">{isLeader ? stats.notStarted : stats.pending}</p>
-                <p className="mt-2 text-xs text-text-secondary">Waiting for reviewer activity</p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10 text-warning"><CircleDashed size={19} /></div>
             </div>
           </section>
 
-          <div
-            className={
-              isLeader && memberProgresses.length > 0
-                ? "grid grid-cols-1 items-start gap-5 xl:grid-cols-4 xl:gap-6"
-                : "block"
-            }
-          >
-            <div
-              className={
-                isLeader && memberProgresses.length > 0
-                  ? "min-w-0 xl:col-span-3"
-                  : "w-full"
-              }
-            >
+          <section aria-label="Assessment progress" className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border lg:grid-cols-4">
+            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">Total studies</p>
+                <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{stats.total}</p>
+                <p className="mt-2 text-xs text-text-secondary">In assessment scope</p>
+              </div>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bg-primary text-text-secondary"><Files size={18} /></span>
+            </div>
+            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">Completed</p>
+                <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{stats.completed}</p>
+                <p className="mt-2 text-xs text-success">{stats.total ? `${Math.round(stats.completionPercentage)}% of studies reviewed` : "No studies completed"}</p>
+              </div>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success/10 text-success"><CheckCircle2 size={18} /></span>
+            </div>
+            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">In progress</p>
+                <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{stats.inProgress}</p>
+                <p className="mt-2 text-xs text-text-secondary">Reviewer work underway</p>
+              </div>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-light text-accent"><Clock3 size={18} /></span>
+            </div>
+            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">{isLeader ? "Not started" : "Pending"}</p>
+                <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{isLeader ? stats.notStarted : stats.pending}</p>
+                <p className="mt-2 text-xs text-text-secondary">{isLeader ? "Waiting for reviewer activity" : "Awaiting final submission"}</p>
+              </div>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning"><CircleDashed size={18} /></span>
+            </div>
+          </section>
+
+          <div className={isLeader && memberProgresses.length > 0 ? "grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-6" : "block"}>
+            <div className={isLeader && memberProgresses.length > 0 ? "min-w-0" : "w-full"}>
               <AssignMembersTabContent
                 papers={activePapers}
                 isLeader={isLeader}
@@ -484,7 +482,7 @@ export default function QualityAssessmentWorkspace() {
             </div>
 
             {isLeader && memberProgresses.length > 0 && (
-              <div className="min-w-0 xl:col-span-1">
+              <div className="min-w-0 xl:sticky xl:top-5">
                 <ReviewerProgressPanel reviewerProgresses={memberProgresses} />
               </div>
             )}
