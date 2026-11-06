@@ -21,6 +21,7 @@ import {
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
 import type { RootState } from "../../redux/store";
+import PageTransition from "../../components/common/PageTransition";
 
 type PageTab = "new" | "reports";
 
@@ -207,7 +208,7 @@ export default function MyIssueReportsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-5 p-5 sm:p-6 lg:p-8">
+    <div data-page-transition-single className="mx-auto w-full max-w-[1600px] space-y-5 p-5 sm:p-6 lg:p-8">
       <header className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-[26px] font-semibold tracking-tight text-text-primary sm:text-[28px]">Report a problem</h1>
@@ -275,14 +276,19 @@ export default function MyIssueReportsPage() {
         </p>
       )}
 
-      {activeTab === "new" ? (
-        <section
-          key="new-report-panel"
-          id="new-report-panel"
-          role="tabpanel"
-          aria-labelledby="new-report-tab"
-          className="route-content-enter rounded-xl border border-border bg-white p-5 sm:p-6"
-        >
+      <PageTransition
+        className="page-transition-host--contents"
+        stagger={false}
+        transitionKey={activeTab}
+        skipInitialAnimation
+      >
+        {activeTab === "new" ? (
+          <section
+            id="new-report-panel"
+            role="tabpanel"
+            aria-labelledby="new-report-tab"
+            className="rounded-xl border border-border bg-white p-5 sm:p-6"
+          >
           <div className="mb-6 flex items-start gap-3.5">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
               <FiAlertCircle aria-hidden="true" size={19} />
@@ -384,9 +390,9 @@ export default function MyIssueReportsPage() {
               </button>
             </div>
           </form>
-        </section>
-      ) : (
-        <section key="my-reports-panel" id="my-reports-panel" role="tabpanel" aria-labelledby="my-reports-tab" className="route-content-enter space-y-4">
+          </section>
+        ) : (
+          <section id="my-reports-panel" role="tabpanel" aria-labelledby="my-reports-tab" className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-3 px-1">
             <div>
               <h2 className="text-lg font-semibold text-text-primary">Your reports</h2>
@@ -433,8 +439,9 @@ export default function MyIssueReportsPage() {
               {items.map((item) => <ReportCard key={item.id} item={item} />)}
             </div>
           )}
-        </section>
-      )}
+          </section>
+        )}
+      </PageTransition>
     </div>
   );
 }

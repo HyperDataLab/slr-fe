@@ -1,5 +1,13 @@
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
+export const getRepositoryApiBase = (origin: string, apiBaseUrl = API_BASE_URL) => {
+  const url = new URL(apiBaseUrl, origin);
+  url.pathname = url.pathname.replace(/\/+$/, "");
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/$/, "");
+};
+
 export const getRepositoryApiDocsUrl = (origin: string, apiBaseUrl = API_BASE_URL) => {
   const url = new URL(apiBaseUrl, origin);
   const apiPath = url.pathname.replace(/\/+$/, "").replace(/\/api$/, "");

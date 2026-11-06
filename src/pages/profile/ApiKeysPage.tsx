@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { FiCheck, FiCopy, FiKey, FiRefreshCw, FiTrash2 } from 'react-icons/fi';
 import api from '../../config/axios';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 type ApiKey = {
   keyId: string;
@@ -16,6 +17,7 @@ type ApiKey = {
 };
 type Envelope<T> = { isSuccess: boolean; data: T; errors: unknown };
 type OneTimeSecret = { key: ApiKey; secret: string };
+type PendingKeyAction = { type: 'rotate' | 'revoke'; key: ApiKey };
 
 const scopeOptions = [
   ['repository:read', 'Search and read system wide repository works'],
@@ -44,6 +46,7 @@ export default function ApiKeysPage() {
   const [editingKey, setEditingKey] = useState<ApiKey | null>(null);
   const [editName, setEditName] = useState('');
   const [editScopes, setEditScopes] = useState<string[]>([]);
+  const [pendingKeyAction, setPendingKeyAction] = useState<PendingKeyAction | null>(null);
 
   const loadKeys = useCallback(async () => {
     setLoading(true);
@@ -67,21 +70,24 @@ export default function ApiKeysPage() {
     finally { setBusy(false); }
   };
 
-  const rotateKey = async (key: ApiKey) => {
-    if (!window.confirm(`Rotate “${key.displayName}”? The current secret will stop working immediately.`)) return;
+  const rotateKey = (key: ApiKey) => setPendingKeyAction({ type: 'rotate', key });
+
+  const revokeKey = (key: ApiKey) => setPendingKeyAction({ type: 'revoke', key });
+
+  const confirmKeyAction = async () => {
+    if (!pendingKeyAction) return;
+    const action = pendingKeyAction;
+    setPendingKeyAction(null);
     setBusy(true); setError('');
     try {
-      const { data } = await api.post<Envelope<OneTimeSecret>>(`/me/repository-api-keys/${encodeURIComponent(key.keyId)}/rotate`);
-      setOneTimeSecret(data.data); await loadKeys();
+      if (action.type === 'rotate') {
+        const { data } = await api.post<Envelope<OneTimeSecret>>(`/me/repository-api-keys/${encodeURIComponent(action.key.keyId)}/rotate`);
+        setOneTimeSecret(data.data);
+      } else {
+        await api.delete(`/me/repository-api-keys/${encodeURIComponent(action.key.keyId)}`);
+      }
+      await loadKeys();
     } catch (cause) { setError(apiError(cause)); }
-    finally { setBusy(false); }
-  };
-
-  const revokeKey = async (key: ApiKey) => {
-    if (!window.confirm(`Revoke “${key.displayName}”? This cannot be undone.`)) return;
-    setBusy(true); setError('');
-    try { await api.delete(`/me/repository-api-keys/${encodeURIComponent(key.keyId)}`); await loadKeys(); }
-    catch (cause) { setError(apiError(cause)); }
     finally { setBusy(false); }
   };
 
@@ -133,6 +139,18 @@ export default function ApiKeysPage() {
       <section><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-bold text-text-primary">Your API keys</h2><button type="button" onClick={() => void loadKeys()} className="min-h-11 rounded-lg px-3 text-sm font-semibold text-primary">Refresh</button></div>
         {loading ? <p role="status" className="rounded-xl border border-border p-6 text-sm text-text-secondary">Loading API keys…</p> : keys.length === 0 ? <div className="rounded-xl border border-dashed border-border p-8 text-center"><FiKey className="mx-auto h-6 w-6 text-text-muted" /><p className="mt-3 font-semibold text-text-primary">No API keys yet</p><p className="mt-1 text-sm text-text-secondary">Create a key above to make your first authenticated API request.</p></div> : <div className="space-y-3">{keys.map((key) => <article key={key.keyId} className="rounded-xl border border-border bg-surface-white p-4 sm:p-5"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-text-primary">{key.displayName}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${key.isActive ? 'bg-success/10 text-success' : 'bg-bg-secondary text-text-muted'}`}>{key.isActive ? 'Active' : 'Revoked'}</span></div><p className="mt-1 font-mono text-sm text-text-secondary">{key.keyPrefix}••••••••</p><p className="mt-2 text-xs text-text-muted">Created {formatDate(key.createdAt)} · Updated {formatDate(key.updatedAt)}</p><div className="mt-2 flex flex-wrap gap-1.5">{key.scopes.map((scope) => <span key={scope} className="rounded bg-bg-secondary px-2 py-1 text-xs text-text-secondary">{scope}</span>)}</div></div>{key.isActive && <div className="flex shrink-0 gap-2"><button disabled={busy} type="button" onClick={() => { setEditingKey(key); setEditName(key.displayName); setEditScopes([...key.scopes]); }} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm font-semibold text-text-primary">Edit</button><button disabled={busy} type="button" onClick={() => void rotateKey(key)} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm font-semibold text-text-primary disabled:opacity-50"><FiRefreshCw />Rotate</button><button disabled={busy} type="button" onClick={() => void revokeKey(key)} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-error/30 px-3 text-sm font-semibold text-error disabled:opacity-50"><FiTrash2 />Revoke</button></div>}</div></article>)}</div>}
       </section>
+      <ConfirmModal
+        isOpen={pendingKeyAction !== null}
+        onClose={() => setPendingKeyAction(null)}
+        onConfirm={() => void confirmKeyAction()}
+        title={pendingKeyAction?.type === 'revoke' ? 'Revoke API key?' : 'Rotate API key?'}
+        message={pendingKeyAction?.type === 'revoke'
+          ? <>Revoke <strong>{pendingKeyAction.key.displayName}</strong>? This cannot be undone, and clients using this key will lose access immediately.</>
+          : <>Rotate <strong>{pendingKeyAction?.key.displayName}</strong>? The current secret will stop working immediately, so update any clients that use it.</>}
+        confirmText={pendingKeyAction?.type === 'revoke' ? 'Revoke key' : 'Rotate key'}
+        cancelText="Keep key"
+        variant={pendingKeyAction?.type === 'revoke' ? 'danger' : 'warning'}
+      />
       {editingKey && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div role="dialog" aria-modal="true" aria-labelledby="edit-api-key-title" className="w-full max-w-xl rounded-xl bg-surface-white p-5 shadow-xl sm:p-6"><h2 id="edit-api-key-title" className="text-lg font-bold text-text-primary">Edit API key</h2><form onSubmit={saveKeyEdits} className="mt-4 space-y-4"><label className="block text-sm font-semibold">Key name<input required maxLength={120} value={editName} onChange={(event) => setEditName(event.target.value)} className="mt-2 min-h-11 w-full rounded-lg border border-border px-3 font-normal" /></label><fieldset><legend className="text-sm font-semibold">Permissions</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{scopeOptions.map(([scope, description]) => <label key={scope} className="flex min-h-12 items-start gap-3 rounded-lg border border-border p-3 text-sm"><input type="checkbox" checked={editScopes.includes(scope)} onChange={() => toggleEditScope(scope)} className="mt-1 accent-primary" /><span><span className="font-semibold">{scope}</span><span className="mt-1 block text-xs text-text-secondary">{description}</span></span></label>)}</div></fieldset><div className="flex justify-end gap-2"><button type="button" onClick={() => setEditingKey(null)} className="min-h-11 rounded-lg border border-border px-4 text-sm font-semibold">Cancel</button><button disabled={busy || !editName.trim() || editScopes.length === 0} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50">Save changes</button></div></form></div></div>}
     </main>
   );

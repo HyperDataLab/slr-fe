@@ -33,11 +33,11 @@ describe("public Repository API docs", () => {
   it("shows public guides and endpoint reference without requiring sign-in", async () => {
     renderPage(false);
     expect(await screen.findByText("Public developer docs")).toBeTruthy();
-    expect(screen.getByText("Cursor pagination")).toBeTruthy();
+    expect(screen.getAllByText("Cursor pagination").length).toBeGreaterThan(1);
     expect(screen.getByText("JavaScript / TypeScript · Node.js 18+")).toBeTruthy();
     expect(screen.getByText("Python · requests")).toBeTruthy();
-    expect(screen.getByText("Search repository works")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /sign in to create a key/i })).toBeTruthy();
+    expect(screen.getAllByText("Search repository works").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /sign in to create a key/i }).length).toBeGreaterThan(0);
   });
 
   it("lets a signed-in user create a key from the docs and shows its one-time secret", async () => {
@@ -47,8 +47,8 @@ describe("public Repository API docs", () => {
     fireEvent.click(screen.getByRole("button", { name: /create api key here/i }));
     fireEvent.change(screen.getByLabelText("Key name"), { target: { value: "Research client" } });
     fireEvent.click(screen.getByRole("button", { name: "Create key" }));
-    expect(await screen.findByText("one-time-secret-value")).toBeTruthy();
     expect(mocks.post).toHaveBeenCalledWith("/me/repository-api-keys", { displayName: "Research client", scopes: ["repository:read", "project:read", "analysis:read"] });
-    await waitFor(() => expect((screen.getByLabelText("API key for Try it out") as HTMLInputElement).value).toBe("one-time-secret-value"));
+    await waitFor(() => expect((screen.getByLabelText("New API key") as HTMLInputElement).value).toBe("one-time-secret-value"));
+    expect((screen.getByPlaceholderText("Paste a key for this page session") as HTMLInputElement).value).toBe("one-time-secret-value");
   });
 });

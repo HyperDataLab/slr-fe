@@ -186,7 +186,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen = false, hid
                 <SystemSignature className="mb-0" />
               </Link>
 
-              {onMenuClick && <span className="truncate text-sm font-semibold text-text-primary">{location.pathname.startsWith("/shared-repository") ? "Shared library" : location.pathname.startsWith("/profile") ? "My Profile" : "Projects"}</span>}
+              {onMenuClick && <span className="truncate text-sm font-semibold text-text-primary">{location.pathname.startsWith("/shared-repository") ? "Shared library" : location.pathname.startsWith("/profile") ? "My Profile" : location.pathname === "/issue-reports" ? "Report" : "Projects"}</span>}
               {/* Desktop Navigation */}
               <nav aria-label="Primary navigation" className={onMenuClick ? "hidden" : "hidden items-center gap-1 lg:flex"}>
                 {navLinks.map((link) => {

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminOverview from "../pages/admin/AdminOverview";
@@ -15,7 +15,6 @@ import QualityCriteriaTemplates from "../pages/admin/QualityCriteriaTemplates";
 import RepositoryApiClientsPage from "../pages/admin/RepositoryApiClientsPage";
 import PaperAssetsPage from "../pages/admin/PaperAssetsPage";
 import IssueReportsPage from "../pages/admin/IssueReportsPage";
-import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 const NotificationCenterPage = lazy(() => import("../pages/notifications/NotificationCenterPage"));
 const PaperAssetDetailPage = lazy(() => import("../pages/admin/PaperAssetDetailPage"));
@@ -26,14 +25,7 @@ function AdminRoutes() {
       <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
         <Route element={<AdminDashboard />}>
           <Route index element={<AdminOverview />} />
-          <Route
-            path="notifications"
-            element={
-              <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><LoadingSpinner size="lg" /></div>}>
-                <NotificationCenterPage disableNavigation />
-              </Suspense>
-            }
-          />
+          <Route path="notifications" element={<NotificationCenterPage disableNavigation />} />
           <Route path="audit-logs" element={<AuditLogPage />} />
           <Route path="projects" element={<SLRProjectManagement />} />
           <Route path="users" element={<UserManagement />} />
@@ -41,22 +33,8 @@ function AdminRoutes() {
           <Route path="repository-api" element={<RepositoryApiClientsPage />} />
           <Route path="paper-files" element={<PaperAssetsPage />} />
           <Route path="issue-reports" element={<IssueReportsPage />} />
-          <Route
-            path="paper-files/repository/:paperId"
-            element={(
-              <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><LoadingSpinner size="lg" /></div>}>
-                <PaperAssetDetailPage />
-              </Suspense>
-            )}
-          />
-          <Route
-            path="paper-files/:projectId/:paperId"
-            element={(
-              <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><LoadingSpinner size="lg" /></div>}>
-                <PaperAssetDetailPage />
-              </Suspense>
-            )}
-          />
+          <Route path="paper-files/repository/:paperId" element={<PaperAssetDetailPage />} />
+          <Route path="paper-files/:projectId/:paperId" element={<PaperAssetDetailPage />} />
           <Route path="master-sources" element={<MasterSourcePage />} />
           <Route path="settings" element={<SystemSettings />} />
           <Route path="templates" element={<TemplateManager />} />

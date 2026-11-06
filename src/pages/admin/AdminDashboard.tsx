@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useState } from "react";
+import React, { Suspense, useEffect, useLayoutEffect, useState } from "react";
 import Sidebar, { type SidebarItem } from "../../components/ui/Sidebar";
 import AdminHeader from "../../components/admin/AdminHeader";
 import Drawer from "../../components/ui/Drawer";
@@ -23,9 +23,11 @@ import {
 import { SiTask } from "react-icons/si";
 import { MdChecklist } from "react-icons/md";
 import { useDispatch } from "react-redux";
-import { useLocation, useNavigate, Outlet } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { logout } from "../../redux/slices/authSlice";
 import SectionGuard from "../../components/auth/SectionGuard";
+import LoadingSpinner from "../../components/ui/LoadingSpinner";
+import PageTransition from "../../components/common/PageTransition";
 
 const AdminDashboard: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -209,7 +211,9 @@ const AdminDashboard: React.FC = () => {
 
           {/* Dynamic Content */}
           <main className="custom-scrollbar flex-1 overflow-y-auto px-5 py-7 sm:px-7 lg:px-8 lg:py-8">
-            <Outlet />
+            <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><LoadingSpinner size="lg" /></div>}>
+              <PageTransition />
+            </Suspense>
           </main>
         </div>
       </div>

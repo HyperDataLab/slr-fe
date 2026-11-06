@@ -45,6 +45,8 @@
     "html-to-image": "^1.11.13",
     "lucide-react": "^0.575.0",
     "pdfjs-dist": "^3.4.120",
+    "prism-react-renderer": "^2.4.1",
+    "prismjs": "^1.30.0",
     "react": "^19.2.0",
     "react-cytoscapejs": "^2.0.0",
     "react-dom": "^19.2.0",
