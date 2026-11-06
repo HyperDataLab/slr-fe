@@ -1,221 +1,326 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { FiCheck, FiCopy, FiKey, FiPlay, FiTrash2 } from "react-icons/fi";
+import { FiBookOpen, FiCommand, FiMenu, FiMoon, FiSearch, FiSun } from "react-icons/fi";
 import api from "../../config/axios";
-import { API_BASE_URL, getRepositoryApiDocsUrl } from "../../config/apiUrls";
+import { API_BASE_URL, getRepositoryApiBase, getRepositoryApiDocsUrl } from "../../config/apiUrls";
+import SystemSignature from "../../components/logo/SystemSignature";
 import type { RootState } from "../../redux/store";
+import type { Endpoint, OpenApiDocument } from "./docs-types";
+import { collectEndpointGroups, endpointId, slug } from "./docs-utils";
+import ApiOperationCard from "./components/ApiOperationCard";
+import DocsCodeBlock from "./components/DocsCodeBlock";
+import DocsRightRail from "./components/DocsRightRail";
+import DocsSearchDialog from "./components/DocsSearchDialog";
+import type { DocsSearchResult } from "./components/DocsSearchDialog";
+import DocsSidebar from "./components/DocsSidebar";
+import "./developer-docs.css";
 
-type Schema = { $ref?: string; type?: string; format?: string; example?: unknown; default?: unknown; enum?: unknown[]; properties?: Record<string, Schema>; items?: Schema; required?: string[] };
-type Parameter = { name: string; in: string; required?: boolean; description?: string; schema?: Schema; example?: unknown };
-type Operation = { tags?: string[]; summary?: string; description?: string; operationId?: string; parameters?: Parameter[]; requestBody?: { content?: Record<string, { schema?: Schema; example?: unknown }> }; responses?: Record<string, { description?: string; content?: Record<string, { schema?: Schema; example?: unknown }> }>; security?: Record<string, string[]>[] };
-type OpenApiDocument = { openapi?: string; info?: { title?: string; description?: string; version?: string }; tags?: { name: string; description?: string }[]; paths?: Record<string, Record<string, Operation>> };
 type CreatedApiKey = { key: { displayName: string; scopes: string[] }; secret: string };
 type ApiEnvelope<T> = { data: T };
 
-const methodNames = ["get", "post", "put", "patch", "delete", "head", "options"];
-const scopeOptions = [
-  ["repository:read", "Search and read repository works"],
-  ["project:read", "Read project metadata where supported"],
-  ["analysis:read", "Read repository analysis"],
-  ["artifacts:download", "Download available artifacts"],
-] as const;
-const defaultScopes = scopeOptions.slice(0, 3).map(([scope]) => scope);
-const docsJsonUrl = (origin: string) => getRepositoryApiDocsUrl(origin) + ".json";
-const apiError = (error: unknown) => {
+const docsJsonUrl = (origin: string) => `${getRepositoryApiDocsUrl(origin)}.json`;
+const defaultScopes = ["repository:read", "project:read", "analysis:read"];
+const scopeDescriptions: Record<string, string> = {
+  "repository:read": "Search and read repository works and metadata.",
+  "project:read": "Read project metadata where supported.",
+  "analysis:read": "Read repository analysis and analysis runs.",
+  "artifacts:download": "Download available repository artifacts.",
+  "repository:write": "Import repository works. This scope is provisioned by an administrator.",
+};
+
+function getApiError(error: unknown) {
   const data = (error as { response?: { data?: { error?: { message?: string }; errors?: string } } })?.response?.data;
   return data?.error?.message || data?.errors || "Could not create the API key. Please try again.";
-};
-const getApiBase = (origin: string) => new URL(API_BASE_URL, origin).toString().replace(/\/$/, "");
-
-function resolvedSchema(schema: Schema | undefined, spec: OpenApiDocument, depth = 0): Schema {
-  if (!schema || depth > 5) return {};
-  if (!schema.$ref) return schema;
-  const target = schema.$ref.split("/").slice(1).reduce<unknown>((current, key) => (current as Record<string, unknown> | undefined)?.[key.replace(/~1/g, "/").replace(/~0/g, "~")], spec);
-  return resolvedSchema(target as Schema, spec, depth + 1);
 }
 
-function schemaExample(schema: Schema | undefined, spec: OpenApiDocument): unknown {
-  if (!schema) return {};
-  const resolved = resolvedSchema(schema, spec);
-  if (resolved.example !== undefined) return resolved.example;
-  if (resolved.default !== undefined) return resolved.default;
-  if (resolved.enum?.length) return resolved.enum[0];
-  if (resolved.type === "array") return resolved.items ? [schemaExample(resolved.items, spec)] : [];
-  if (resolved.type === "object" || resolved.properties) return Object.fromEntries(Object.entries(resolved.properties || {}).map(([key, value]) => [key, schemaExample(value, spec)]));
-  if (resolved.type === "integer" || resolved.type === "number") return 1;
-  if (resolved.type === "boolean") return false;
-  if (resolved.type === "string") return resolved.format === "binary" ? null : "string";
-  return {};
-}
-
-function OperationCard({ path, method, operation, spec, apiBase, apiKey, onMissingKey }: { path: string; method: string; operation: Operation; spec: OpenApiDocument; apiBase: string; apiKey: string; onMissingKey: () => void }) {
-  const params = operation.parameters || [];
-  const content = operation.requestBody?.content || {};
-  const bodySchema = content["application/json"] || Object.values(content)[0];
-  const contentType = Object.keys(content)[0] || "application/json";
-  const multipart = contentType === "multipart/form-data";
-  const formProperties = Object.entries(resolvedSchema(bodySchema?.schema, spec).properties || {});
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [fileValues, setFileValues] = useState<Record<string, File | null>>({});
-  const [body, setBody] = useState(JSON.stringify(bodySchema?.example ?? schemaExample(bodySchema?.schema, spec), null, 2));
-  const [response, setResponse] = useState("");
-  const [responseStatus, setResponseStatus] = useState("");
-  const [requestId, setRequestId] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const scopes = [...new Set((operation.security || []).flatMap((item) => Object.values(item).flat()))];
-
-  const send = async () => {
-    if (!apiKey.trim()) { onMissingKey(); return; }
-    setBusy(true); setError(""); setResponse("");
-    try {
-      let requestPath = path;
-      const query = new URLSearchParams();
-      const headers: Record<string, string> = { Accept: "application/json", "X-API-Key": apiKey.trim() };
-      params.forEach((parameter) => {
-        const value = values[parameter.in + ":" + parameter.name]?.trim();
-        if (!value) return;
-        if (parameter.in === "path") requestPath = requestPath.replace("{" + parameter.name + "}", encodeURIComponent(value));
-        if (parameter.in === "query") query.set(parameter.name, value);
-        if (parameter.in === "header") headers[parameter.name] = value;
-      });
-      if (/\{[^}]+\}/.test(requestPath)) throw new Error("Fill in all required path parameters.");
-      const url = new URL(apiBase + (requestPath.startsWith("/") ? requestPath : "/" + requestPath));
-      query.forEach((value, name) => url.searchParams.set(name, value));
-      const init: RequestInit = { method: method.toUpperCase(), headers };
-      if (operation.requestBody && multipart) {
-        const form = new FormData();
-        formProperties.forEach(([name, schema]) => {
-          const property = resolvedSchema(schema, spec);
-          const file = fileValues[name];
-          const value = values["body:" + name];
-          if (property.format === "binary") { if (file) form.append(name, file); }
-          else if (value !== undefined && value !== "") form.append(name, value);
-        });
-        init.body = form;
-      } else if (operation.requestBody && contentType === "application/x-www-form-urlencoded") {
-        const fields = JSON.parse(body || "{}") as Record<string, string>;
-        headers["Content-Type"] = contentType;
-        init.body = new URLSearchParams(Object.entries(fields).map(([name, value]) => [name, String(value)]));
-      } else if (operation.requestBody) {
-        headers["Content-Type"] = contentType;
-        init.body = body || "{}";
-      }
-      const result = await fetch(url, init);
-      const type = result.headers.get("content-type") || "";
-      const data = type.includes("json") ? await result.json() : await result.text();
-      setResponseStatus(result.status + " " + result.statusText);
-      setRequestId(result.headers.get("x-request-id") || "");
-      setResponse(typeof data === "string" ? data : JSON.stringify(data, null, 2));
-    } catch (cause) {
-      setError(cause instanceof TypeError ? "Could not connect to " + apiBase + ". Check the API URL and CORS configuration." : cause instanceof Error ? cause.message : "Could not send request.");
-    } finally { setBusy(false); }
-  };
-
-  return <details className="rounded-xl border border-border bg-surface-white">
-    <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 p-4">
-      <span className={"min-w-16 rounded px-2 py-1 text-center font-mono text-xs font-bold text-white " + (method === "GET" ? "bg-success" : method === "DELETE" ? "bg-error" : "bg-warning")}>{method}</span>
-      <code className="min-w-0 flex-1 break-all text-sm font-semibold">{path}</code><span className="text-xs text-text-secondary">{operation.summary || operation.operationId}</span>
-    </summary>
-    <div className="grid border-t border-border lg:grid-cols-2">
-      <div className="space-y-4 p-4 sm:p-5"><p className="text-sm leading-6 text-text-secondary">{operation.description || operation.summary}</p>
-        {scopes.length > 0 && <p className="text-xs text-text-secondary">Required scopes: {scopes.join(", ")}</p>}
-        {params.map((parameter) => <label key={parameter.in + ":" + parameter.name} className="block text-xs font-semibold">{parameter.name} ({parameter.in}{parameter.required ? ", required" : ""})<input aria-label={parameter.name + " " + parameter.in} className="mt-1 min-h-10 w-full rounded-md border border-border px-3 font-mono text-xs" value={values[parameter.in + ":" + parameter.name] || ""} onChange={(event) => setValues((current) => ({ ...current, [parameter.in + ":" + parameter.name]: event.target.value }))} placeholder={String(parameter.example ?? parameter.schema?.example ?? "")} />{parameter.description && <span className="mt-1 block font-normal text-text-secondary">{parameter.description}</span>}</label>)}
-        {operation.requestBody && multipart && <fieldset className="space-y-3"><legend className="text-xs font-semibold">Upload form</legend>{formProperties.map(([name, schema]) => { const property = resolvedSchema(schema, spec); return <label key={name} className="block text-xs font-semibold">{name}{property.format === "binary" ? <input type="file" aria-label={name} className="mt-1 block min-h-10 w-full rounded-md border border-border p-2" onChange={(event) => setFileValues((current) => ({ ...current, [name]: event.target.files?.[0] || null }))} /> : <input aria-label={name} className="mt-1 min-h-10 w-full rounded-md border border-border px-3" value={values["body:" + name] || ""} onChange={(event) => setValues((current) => ({ ...current, ["body:" + name]: event.target.value }))} />}</label>; })}</fieldset>}
-        {operation.requestBody && !multipart && <label className="block text-xs font-semibold">Request body<textarea aria-label="Request body JSON" className="mt-2 min-h-40 w-full rounded-md border border-border p-3 font-mono text-xs" value={body} onChange={(event) => setBody(event.target.value)} /></label>}
-        <div className="flex gap-2"><button type="button" onClick={() => void send()} disabled={busy} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50"><FiPlay aria-hidden="true" />{busy ? "Sending…" : "Try it out"}</button><button type="button" onClick={() => { setValues({}); setResponse(""); setError(""); }} className="min-h-10 rounded-lg border border-border px-3 text-sm">Reset</button></div>
-      </div>
-      <div className="min-w-0 border-t border-border bg-bg-secondary/30 p-4 sm:p-5 lg:border-l lg:border-t-0"><h4 className="mb-3 text-sm font-bold">Responses</h4><div className="space-y-2">{Object.entries(operation.responses || {}).map(([status, item]) => <details key={status} className="rounded-lg border border-border bg-surface-white"><summary className="cursor-pointer p-3 text-xs"><strong className="mr-2">{status}</strong>{item.description}</summary>{item.content && <pre className="max-h-52 overflow-auto border-t border-border p-3 text-xs">{JSON.stringify(Object.values(item.content)[0]?.example ?? schemaExample(Object.values(item.content)[0]?.schema, spec), null, 2)}</pre>}</details>)}</div>{error && <p role="alert" className="mt-3 text-sm text-error">{error}</p>}{response && <div className="mt-4" aria-live="polite"><p className="mb-2 text-xs font-bold">{responseStatus}{requestId && " · request " + requestId}</p><pre className="max-h-80 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-white">{response}</pre></div>}</div>\n+    </div>\n+  </details>;
+function Heading({ kicker, title, description }: { kicker: string; title: string; description: string }) {
+  return <header className="devdocs-section__heading"><p className="devdocs-section-kicker">{kicker}</p><h2 className="devdocs-section__title">{title}</h2><p className="devdocs-section__description">{description}</p></header>;
 }
 
 export default function RepositoryApiDocsPage() {
-  const navigate = useNavigate();
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+  const navigate = useNavigate();
   const [spec, setSpec] = useState<OpenApiDocument | null>(null);
-  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [apiBase] = useState(() => getApiBase(window.location.origin));
+  const [activeId, setActiveId] = useState("introduction");
+  const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint>();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [referenceQuery, setReferenceQuery] = useState("");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    try { return localStorage.getItem("slrs-developer-docs-theme") === "dark" ? "dark" : "light"; }
+    catch { return "light"; }
+  });
   const [apiKey, setApiKey] = useState("");
-  const [keyName, setKeyName] = useState("");
-  const [keyScopes, setKeyScopes] = useState<string[]>(defaultScopes);
   const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [keyName, setKeyName] = useState("");
+  const [creatingKey, setCreatingKey] = useState(false);
   const [keyError, setKeyError] = useState("");
-  const [created, setCreated] = useState<CreatedApiKey | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [filter, setFilter] = useState("");
-  const wasAuthenticated = useRef(isAuthenticated);
+  const [createdKey, setCreatedKey] = useState<CreatedApiKey | null>(null);
+  const apiKeyRef = useRef<HTMLInputElement>(null);
+
+  const groups = useMemo(() => collectEndpointGroups(spec), [spec]);
+  const endpoints = useMemo(() => groups.flatMap((group) => group.operations), [groups]);
+  const apiBase = useMemo(() => {
+    const documentedServer = spec?.servers?.[0]?.url;
+    const isLocalHost = (value: string) => {
+      try { return ["localhost", "127.0.0.1", "::1"].includes(new URL(value, window.location.origin).hostname); }
+      catch { return false; }
+    };
+    const currentIsLocal = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    const safeServer = documentedServer && (!isLocalHost(documentedServer) || currentIsLocal) ? documentedServer : API_BASE_URL;
+    return getRepositoryApiBase(window.location.origin, safeServer);
+  }, [spec]);
+  const jsonUrl = useMemo(() => docsJsonUrl(window.location.origin), []);
+  const currentEndpoint = selectedEndpoint || endpoints.find((endpoint) => endpoint.method === "GET" && endpoint.path.endsWith("/works")) || endpoints[0];
+  const currentGroup = groups.find((group) => group.operations.some((endpoint) => endpoint === currentEndpoint));
+  const filteredGroups = useMemo(() => {
+    const term = referenceQuery.trim().toLowerCase();
+    if (!term) return groups;
+    return groups.map((group) => ({
+      ...group,
+      operations: group.operations.filter(({ path, method, operation }) => `${path} ${method} ${operation.summary || ""} ${operation.description || ""} ${operation.operationId || ""}`.toLowerCase().includes(term)),
+    })).filter((group) => group.operations.length);
+  }, [groups, referenceQuery]);
+
+  const searchEntries = useMemo<DocsSearchResult[]>(() => {
+    const entries: DocsSearchResult[] = [
+      { id: "introduction", title: "Introduction", description: "Build with the SLRS API", group: "Getting started", keywords: "overview research repository" },
+      { id: "quickstart", title: "Quickstart", description: "Make your first repository request", group: "Getting started", keywords: "curl javascript python" },
+      { id: "explore-api", title: "Explore the API", description: "Browse the implemented repository API groups", group: "Getting started", keywords: "works journals taxonomy metadata artifacts analysis imports" },
+      { id: "authentication", title: "Authentication", description: "Authenticate with an X-API-Key header", group: "Getting started", keywords: "credential security scopes" },
+      { id: "api-keys", title: "API keys", description: "Create and manage user API keys", group: "Getting started", keywords: "credentials dashboard" },
+      { id: "pagination", title: "Cursor pagination", description: "Continue through paginated repository results", group: "Guides", keywords: "cursor limit next" },
+      { id: "filtering", title: "Filtering works", description: "Search and narrow repository works", group: "Guides", keywords: "query filters" },
+      { id: "errors", title: "Errors & rate limits", description: "Understand API errors and retry behavior", group: "Guides", keywords: "429 retry-after status" },
+    ];
+    groups.forEach((group) => {
+      entries.push({ id: `reference-${slug(group.name)}`, title: group.name, description: group.description || `${group.operations.length} API operations`, group: "API reference", keywords: group.operations.map((item) => `${item.method} ${item.path}`).join(" ") });
+      group.operations.forEach((endpoint) => entries.push({
+        id: endpointId(endpoint),
+        title: `${endpoint.method} ${endpoint.path}`,
+        description: endpoint.operation.summary || endpoint.operation.description || endpoint.operation.operationId || "API endpoint",
+        group: group.name,
+        keywords: `${endpoint.operation.operationId || ""} ${endpoint.operation.tags?.join(" ") || ""}`,
+      }));
+    });
+    entries.push({ id: "openapi-json", title: "OpenAPI specification", description: "View the live OpenAPI JSON contract", group: "Resources", keywords: "schema json download" });
+    return entries;
+  }, [groups]);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(docsJsonUrl(window.location.origin), { headers: { Accept: "application/json" }, signal: controller.signal })
-      .then(async (res) => { if (!res.ok) throw new Error("OpenAPI returned HTTP " + res.status); return res.json() as Promise<OpenApiDocument>; })
-      .then(setSpec)
-      .catch((cause: unknown) => { if (!controller.signal.aborted) setLoadError(cause instanceof Error ? cause.message : "Could not load the API contract."); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
-  }, []);
-  useEffect(() => {
-    if (wasAuthenticated.current && !isAuthenticated) {
-      setApiKey("");
-      setCreated(null);
-      setCopied(false);
-      setShowCreate(false);
-    }
-    wasAuthenticated.current = isAuthenticated;
-  }, [isAuthenticated]);
-
-  const groups = useMemo(() => {
-    if (!spec?.paths) return [];
-    const descriptions = new Map((spec.tags || []).map((tag) => [tag.name, tag.description || ""]));
-    const grouped = new Map<string, { description: string; operations: { path: string; method: string; operation: Operation }[] }>();
-    Object.entries(spec.paths).forEach(([path, pathItem]) => methodNames.forEach((method) => {
-      const operation = pathItem[method];
-      if (!operation) return;
-      (operation.tags?.length ? operation.tags : ["Other"]).forEach((tag) => {
-        const group = grouped.get(tag) || { description: descriptions.get(tag) || "", operations: [] };
-        group.operations.push({ path, method: method.toUpperCase(), operation });
-        grouped.set(tag, group);
+    fetch(jsonUrl, { signal: controller.signal, headers: { Accept: "application/json" } })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Could not load the API contract (${response.status}).`);
+        return response.json() as Promise<OpenApiDocument>;
+      })
+      .then((document) => { setSpec(document); setLoadError(""); })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setLoadError(error instanceof Error ? error.message : "Could not load the API contract.");
       });
-    }));
-    return [...grouped.entries()].map(([name, value]) => ({ name, ...value }));
+    return () => controller.abort();
+  }, [jsonUrl]);
+
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = "SLRS Developer Docs | Research Repository API";
+    let description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+    const created = !description;
+    if (!description) {
+      description = document.createElement("meta");
+      description.name = "description";
+      document.head.append(description);
+    }
+    const previousDescription = description.content;
+    description.content = "Developer documentation for the SLRS Research Repository API, including authentication, research works, taxonomy, artifacts, and analysis.";
+    return () => {
+      document.title = previousTitle;
+      if (created) description?.remove();
+      else if (description) description.content = previousDescription;
+    };
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem("slrs-developer-docs-theme", theme); } catch { /* Private browsing may block storage. */ }
+  }, [theme]);
+
+  useEffect(() => {
+    const onShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, []);
+
+  useEffect(() => {
+    const sections = [...document.querySelectorAll<HTMLElement>(".devdocs-article section[id]")];
+    if (!sections.length || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (visible?.target.id) setActiveId(visible.target.id);
+    }, { rootMargin: "-132px 0px -65% 0px", threshold: [0, 0.15, 0.4] });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
   }, [spec]);
 
-  const filteredGroups = groups.map((group) => ({ ...group, operations: group.operations.filter(({ path, method, operation }) => !filter || (group.name + " " + path + " " + method + " " + operation.summary + " " + operation.description).toLowerCase().includes(filter.toLowerCase())) })).filter((group) => group.operations.length);
-  const createKey = async (event: FormEvent) => {
-    event.preventDefault(); setCreating(true); setKeyError("");
+  useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (!id) return;
+    setActiveId(id);
+    const target = endpoints.find((endpoint) => endpointId(endpoint) === id);
+    if (target) {
+      setSelectedEndpoint(target);
+      document.getElementById(id)?.setAttribute("open", "");
+    }
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "auto", block: "start" }), 0);
+  }, [endpoints]);
+
+  const navigateTo = useCallback((id: string) => {
+    setActiveId(id);
+    setSearchOpen(false);
+    setSidebarOpen(false);
+    if (id.startsWith("endpoint-")) {
+      document.getElementById(id)?.setAttribute("open", "");
+      const target = endpoints.find((endpoint) => endpointId(endpoint) === id);
+      if (target) setSelectedEndpoint(target);
+    }
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }), 0);
+    window.history.replaceState(null, "", `#${id}`);
+  }, [endpoints]);
+
+  const createKey = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!keyName.trim()) return;
+    setCreatingKey(true);
+    setKeyError("");
     try {
-      const result = await api.post<ApiEnvelope<CreatedApiKey>>("/me/repository-api-keys", { displayName: keyName.trim(), scopes: keyScopes });
-      setCreated(result.data.data); setApiKey(result.data.data.secret); setKeyName(""); setShowCreate(false);
-    } catch (cause) { setKeyError(apiError(cause)); }
-    finally { setCreating(false); }
+      const response = await api.post<ApiEnvelope<CreatedApiKey>>("/me/repository-api-keys", { displayName: keyName.trim(), scopes: defaultScopes });
+      setCreatedKey(response.data.data);
+      setApiKey(response.data.data.secret);
+      setShowCreate(false);
+      setKeyName("");
+    } catch (error) { setKeyError(getApiError(error)); }
+    finally { setCreatingKey(false); }
   };
-  const toggleScope = (scope: string) => setKeyScopes((current) => current.includes(scope) ? current.filter((item) => item !== scope) : [...current, scope]);
 
-  return <main className="min-h-[70vh] bg-bg-primary px-4 py-8 sm:px-6 lg:py-12"><div className="mx-auto max-w-7xl">
-    <div className="mb-8 flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-primary">Public developer docs</p><h1 className="mt-2 text-3xl font-bold text-text-primary sm:text-4xl">{spec?.info?.title || "Research Repository API"}</h1><p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">{spec?.info?.description || "Integrate repository search, analysis, taxonomy, and artifact endpoints into your system."}</p></div><a href={docsJsonUrl(window.location.origin)} target="_blank" rel="noreferrer" className="min-h-11 rounded-lg border border-border bg-surface-white px-4 py-3 text-sm font-semibold text-primary">OpenAPI JSON ↗</a></div>
-    <nav aria-label="Developer docs sections" className="mb-8 flex flex-wrap gap-2 border-b border-border pb-4 text-sm">{[["#quickstart", "Quickstart"], ["#authentication", "Authentication"], ["#guides", "Guides"], ["#reference", "API reference"], ["#get-a-key", "Get an API key"]].map(([href, label]) => <a key={href} href={href} className="rounded-full border border-border bg-surface-white px-3 py-2 font-semibold text-text-secondary hover:text-primary">{label}</a>)}</nav>
+  const onMissingKey = () => {
+    navigateTo("authentication");
+    window.setTimeout(() => apiKeyRef.current?.focus(), 250);
+  };
 
-    <section id="quickstart" className="mb-8 grid gap-6 rounded-2xl border border-border bg-surface-white p-5 sm:p-7 lg:grid-cols-2"><div><p className="text-xs font-bold uppercase tracking-widest text-primary">Start here</p><h2 className="mt-2 text-2xl font-bold">Make your first request</h2><ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-6 text-text-secondary"><li>Create a read-only API key below. Its secret is shown once.</li><li>Store the secret in an environment variable on your server; never commit it or expose it in browser code.</li><li>Send it in the <code>X-API-Key</code> header.</li></ol><p className="mt-4 text-xs text-text-muted">API base URL: <code className="break-all">{apiBase}</code></p><label className="mt-4 block text-sm font-semibold">API key for Try it out<div className="mt-2 flex gap-2"><input aria-label="API key for Try it out" type="password" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} className="min-h-11 min-w-0 flex-1 rounded-lg border border-border px-3 font-mono text-xs" placeholder="Paste a repository API key" /><button type="button" onClick={() => setApiKey("")} disabled={!apiKey} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm disabled:opacity-50"><FiTrash2 aria-hidden="true" />Clear</button></div></label></div><div className="overflow-hidden rounded-xl bg-slate-950 text-slate-100"><div className="border-b border-white/10 px-4 py-3 text-xs font-bold">cURL · List works</div><pre className="overflow-auto p-4 text-xs leading-6">{'export SLR_API_BASE="' + apiBase + '"\nexport SLR_API_KEY="your_one_time_secret"\ncurl --get "$SLR_API_BASE/public/v1/repository/works" \\\n  --header "X-API-Key: $SLR_API_KEY" \\\n  --data-urlencode "limit=20"'}</pre></div></section>
+  const environmentLabel = ["localhost", "127.0.0.1"].includes(window.location.hostname) ? "Local development" : "Current deployment";
 
-    <section className="mb-8 rounded-2xl border border-border bg-surface-white p-5 sm:p-7"><h2 className="text-xl font-bold">JavaScript / TypeScript and Python examples</h2><div className="mt-4 grid gap-4 lg:grid-cols-2"><article><h3 className="text-sm font-bold">JavaScript / TypeScript · Node.js 18+</h3><pre className="mt-2 overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-6 text-white">{'const API_BASE = process.env.SLR_API_BASE;\nconst API_KEY = process.env.SLR_API_KEY;\nif (!API_BASE || !API_KEY) throw new Error("Set SLR_API_BASE and SLR_API_KEY");\nconst response = await fetch(API_BASE + "/public/v1/repository/works?limit=20", {\n  headers: { "X-API-Key": API_KEY, Accept: "application/json" },\n});\nconst result = await response.json();\nif (!response.ok) throw new Error(JSON.stringify(result));\nconsole.log(result.data.items);'}</pre></article><article><h3 className="text-sm font-bold">Python · requests</h3><pre className="mt-2 overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-6 text-white">{'import os\nimport requests\n\napi_base = os.environ["SLR_API_BASE"]\napi_key = os.environ["SLR_API_KEY"]\nresponse = requests.get(\n    f"{api_base}/public/v1/repository/works",\n    params={"limit": 20},\n    headers={"X-API-Key": api_key},\n    timeout=30,\n)\nresponse.raise_for_status()\nprint(response.json()["data"]["items"])'}</pre></article></div><p className="mt-3 text-xs text-text-secondary">Set <code>SLR_API_BASE</code> to the API base URL displayed above and keep the key in a server-side environment variable.</p></section>
+  return (
+    <div className="developer-docs" data-theme={theme}>
+      <div className="devdocs-topbar">
+        <button type="button" className="devdocs-topbar__mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Open documentation navigation"><FiMenu /></button>
+        <Link className="devdocs-topbar__identity" to="/projects" aria-label="SLRS developer docs home"><SystemSignature className="devdocs-topbar__logo" logoClassName="h-7"/><span className="devdocs-topbar__divider" /><span>Developer Docs</span></Link>
+        <nav className="devdocs-topbar__links" aria-label="Primary navigation"><Link to="/projects">Projects</Link><Link to="/shared-repository">Shared library</Link><Link to="/repository-api-docs" aria-current="page">Developer API</Link></nav>
+        <span className="devdocs-topbar__version">v{spec?.info?.version || "…"}</span>
+        <button type="button" className="devdocs-topbar__search" onClick={() => setSearchOpen(true)}><FiSearch aria-hidden="true" /><span>Search documentation…</span><kbd><FiCommand aria-hidden="true" /> K</kbd></button>
+        <div className="devdocs-topbar__actions">
+          <button type="button" className="devdocs-icon-button" aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"} onClick={() => setTheme((current) => current === "light" ? "dark" : "light")}>{theme === "light" ? <FiMoon /> : <FiSun />}</button>
+          {isAuthenticated ? <Link className="devdocs-topbar__dashboard" to="/profile/api-keys">Dashboard</Link> : <button type="button" className="devdocs-topbar__signin" onClick={() => navigate("/auth/signin", { state: { from: "/repository-api-docs" } })}>Sign in</button>}
+        </div>
+      </div>
 
-    <section id="authentication" className="mb-8 rounded-xl border border-primary/20 bg-primary-light p-5"><h2 className="text-lg font-bold">Authentication and scopes</h2><p className="mt-2 text-sm leading-6 text-text-secondary">Public repository requests use <code>X-API-Key</code>. User-created keys are read-only and limited to system-wide resources. Wildcard project access and write scopes are unavailable.</p><div className="mt-4 grid gap-3 sm:grid-cols-2">{scopeOptions.map(([scope, text]) => <div key={scope} className="rounded-lg border border-border bg-surface-white p-3"><code className="text-xs font-bold">{scope}</code><p className="mt-1 text-xs text-text-secondary">{text}</p></div>)}</div></section>
+      <div className="devdocs-layout">
+        <DocsSidebar groups={groups} activeId={activeId} open={sidebarOpen} onClose={() => setSidebarOpen(false)} docsJsonUrl={jsonUrl} />
+        <main className="devdocs-article">
+          <section id="introduction" className="devdocs-intro">
+            <p className="devdocs-intro__eyebrow">Public developer docs</p>
+            <h1>Build with the SLRS API</h1>
+            <p className="devdocs-intro__summary">Access research publications, journal metadata, taxonomy, analysis results, and shared repository resources through a unified developer API.</p>
+            <div className="devdocs-intro__actions"><a href="#quickstart" className="devdocs-primary-button" onClick={() => setActiveId("quickstart")}>Get started</a><a href="#api-reference" className="devdocs-secondary-button" onClick={() => setActiveId("api-reference")}>Explore API reference</a></div>
+            <div className="devdocs-intro__meta"><span><FiBookOpen aria-hidden="true" /> OpenAPI {spec?.openapi || "3.x"}</span><span>{environmentLabel} · <code>{apiBase}</code></span><span>JSON responses</span></div>
+            {loadError && <p className="devdocs-alert" role="status">{loadError} <a href={jsonUrl} target="_blank" rel="noreferrer">Open the API contract</a>.</p>}
+          </section>
 
-    <section id="guides" className="mb-8 grid gap-4 lg:grid-cols-3"><article className="rounded-xl border border-border bg-surface-white p-5"><h2 className="font-bold">Cursor pagination</h2><p className="mt-2 text-sm leading-6 text-text-secondary">Pass an opaque <code>nextCursor</code> back unchanged as <code>cursor</code>. Keep filters and page size unchanged while paging. Work search returns it under <code>data.page.nextCursor</code>; other response shapes are documented per endpoint. Stop at <code>null</code>.</p></article><article className="rounded-xl border border-border bg-surface-white p-5"><h2 className="font-bold">Errors and rate limits</h2><p className="mt-2 text-sm leading-6 text-text-secondary"><code>401</code>: invalid, missing, revoked, or rotated key. <code>403</code>: missing scope. <code>429</code>: 120 requests/minute per client and IP; honor <code>Retry-After</code>. Error bodies include a code and message.</p></article><article className="rounded-xl border border-border bg-surface-white p-5"><h2 className="font-bold">Retry safely</h2><p className="mt-2 text-sm leading-6 text-text-secondary">Retry safe reads on temporary network or <code>5xx</code> errors with exponential backoff and jitter. Wait for <code>Retry-After</code> on <code>429</code>. Avoid automatically replaying imports.</p></article></section>
+          <section id="quickstart" className="devdocs-section">
+            <Heading kicker="GETTING STARTED" title="Your first request" description="Create a read key, set it as an environment variable, then query the research repository. The examples below use the current deployment base URL." />
+            <div className="devdocs-quickstart">
+              <ol className="devdocs-steps">
+                <li><span className="devdocs-steps__number">01</span><div><strong>Obtain an API key</strong><p>{isAuthenticated ? <>Use the <Link to="/profile/api-keys">API key manager</Link> or create a read-only key below.</> : <button className="devdocs-inline-button" type="button" onClick={() => navigate("/auth/signin", { state: { from: "/repository-api-docs" } })}>Sign in to create a key</button>}</p></div></li>
+                <li><span className="devdocs-steps__number">02</span><div><strong>Configure your environment</strong><p>Keep the key in a server-side secret store. Set <code>SLR_API_KEY</code> and <code>SLR_API_BASE</code>.</p></div></li>
+                <li><span className="devdocs-steps__number">03</span><div><strong>Send your first request</strong><p>Use the works endpoint and provide the <code>X-API-Key</code> header.</p></div></li>
+                <li><span className="devdocs-steps__number">04</span><div><strong>Inspect the response</strong><p>Read the JSON result and use the returned cursor to continue through the result set.</p></div></li>
+              </ol>
+              <div className="devdocs-quickstart__examples">
+                <p className="devdocs-example-label">JavaScript / TypeScript · Node.js 18+</p>
+                <DocsCodeBlock language="javascript" code={`const baseUrl = process.env.SLR_API_BASE || "${apiBase}";\nconst response = await fetch(\`${"${baseUrl}"}/public/v1/repository/works?limit=20\`, {\n  headers: {\n    "X-API-Key": process.env.SLR_API_KEY,\n    "Accept": "application/json"\n  }\n});\n\nif (!response.ok) throw new Error(await response.text());\nconst works = await response.json();\nconsole.log(works);`} />
+                <p className="devdocs-example-label">Python · requests</p>
+                <DocsCodeBlock language="python" code={`import os\nimport requests\n\nbase_url = os.environ.get("SLR_API_BASE", "${apiBase}")\nresponse = requests.get(\n    f"{base_url}/public/v1/repository/works",\n    headers={"X-API-Key": os.environ["SLR_API_KEY"]},\n    params={"limit": 20},\n    timeout=30,\n)\nresponse.raise_for_status()\nprint(response.json())`} compact />
+              </div>
+            </div>
+            <div className="devdocs-callout"><strong>Development URL:</strong> Local development uses the configured `/api` proxy. Production examples use the current deployment origin and its configured API base; localhost is never assumed for production.</div>
+          </section>
 
-    <section id="get-a-key" className="mb-10 rounded-2xl border border-border bg-surface-white p-5 sm:p-7"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-primary">Self-service</p><h2 className="mt-2 text-2xl font-bold">Register an API key</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">Docs are public. Sign in to create a key here; the secret is shown once. Existing keys can be managed from account settings.</p></div>{isAuthenticated ? <Link to="/profile/api-keys" className="min-h-11 rounded-lg border border-border px-4 py-3 text-sm font-semibold text-primary">Manage keys</Link> : <button type="button" onClick={() => navigate("/auth/signin?returnTo=%2Frepository-api-docs")} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white"><FiKey aria-hidden="true" />Sign in to create a key</button>}</div>
-      {isAuthenticated && !showCreate && <button type="button" onClick={() => { setShowCreate(true); setKeyError(""); }} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white"><FiKey aria-hidden="true" />Create API key here</button>}
-      {isAuthenticated && showCreate && <form onSubmit={(event) => void createKey(event)} className="mt-5 max-w-3xl space-y-4 rounded-xl border border-border p-4 sm:p-5"><label className="block text-sm font-semibold">Key name<input required maxLength={120} value={keyName} onChange={(event) => setKeyName(event.target.value)} className="mt-2 min-h-11 w-full rounded-lg border border-border px-3 font-normal" placeholder="e.g. Research dashboard" /></label><fieldset><legend className="text-sm font-semibold">Permissions</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{scopeOptions.map(([scope, description]) => <label key={scope} className="flex min-h-12 items-start gap-3 rounded-lg border border-border p-3 text-sm"><input type="checkbox" checked={keyScopes.includes(scope)} onChange={() => toggleScope(scope)} className="mt-1 accent-primary" /><span><span className="font-semibold">{scope}</span><span className="mt-1 block text-xs text-text-secondary">{description}</span></span></label>)}</div><p className="mt-2 text-xs text-text-muted">Up to 10 active keys. System-wide read access only.</p></fieldset>{keyError && <p role="alert" className="rounded-lg bg-error/10 p-3 text-sm text-error">{keyError}</p>}<div className="flex gap-2"><button disabled={creating || !keyName.trim() || !keyScopes.length} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50">{creating ? "Creating…" : "Create key"}</button><button type="button" onClick={() => setShowCreate(false)} className="min-h-11 rounded-lg border border-border px-4 text-sm">Cancel</button></div></form>}
-      {created && <section className="mt-5 max-w-3xl rounded-xl border border-success/30 bg-success/5 p-4 sm:p-5" aria-label="New API key secret" aria-live="polite"><h3 className="font-bold">Save this secret now</h3><p className="mt-1 text-sm text-text-secondary">It is shown only once and held in page memory for Try it out. It clears when you leave this page.</p><code className="mt-3 block break-all rounded-lg border border-border bg-surface-white p-3 text-sm">{created.secret}</code><div className="mt-3 flex gap-2"><button type="button" onClick={() => { void navigator.clipboard.writeText(created.secret).then(() => setCopied(true)).catch(() => setKeyError("Clipboard access is unavailable. Select and copy the secret manually.")); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-white">{copied ? <FiCheck /> : <FiCopy />}{copied ? "Copied" : "Copy"}</button><button type="button" onClick={() => { setCreated(null); setApiKey(""); setCopied(false); }} className="min-h-10 rounded-lg border border-border px-3 text-sm">I saved it</button></div></section>}
-    </section>
+          <section id="explore-api" className="devdocs-section">
+            <Heading kicker="API REFERENCE" title="Explore the API" description="Browse the capabilities documented by the active repository API contract." />
+            {groups.length ? <div className="devdocs-api-list">{groups.map((group) => <a href={`#reference-${slug(group.name)}`} key={group.name} className="devdocs-api-list__row" onClick={() => setActiveId(`reference-${slug(group.name)}`)}><span className="devdocs-api-list__name">{group.name}</span><span className="devdocs-api-list__description">{group.description || `Explore ${group.operations.length} operations in this group.`}</span><span className="devdocs-api-list__count">{group.operations.length} ops</span></a>)}</div> : <p className="devdocs-muted">API categories appear here after the OpenAPI contract loads.</p>}
+          </section>
 
-    <section id="reference" className="scroll-mt-20"><div className="mb-5 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-primary">OpenAPI {spec?.openapi}</p><h2 className="mt-1 text-2xl font-bold">API reference</h2><p className="mt-1 text-sm text-text-secondary">Endpoint descriptions, parameters, and response examples load from the backend OpenAPI contract.</p></div><input aria-label="Search API endpoints" value={filter} onChange={(event) => setFilter(event.target.value)} className="min-h-11 w-full rounded-lg border border-border bg-surface-white px-3 text-sm sm:max-w-sm" placeholder="Search operations" /></div>
-      {loading && <p role="status" className="rounded-xl border border-border bg-surface-white p-5 text-sm text-text-secondary">Loading API contract…</p>}
-      {loadError && <div role="alert" className="rounded-xl border border-error/30 bg-error/5 p-5 text-sm text-error">Could not load the OpenAPI contract: {loadError}. Check that the backend endpoint is reachable at <code>{docsJsonUrl(window.location.origin)}</code>.</div>}
-      {spec && <div className="space-y-7">{filteredGroups.map((group) => <section key={group.name}><h3 className="text-lg font-bold">{group.name}</h3>{group.description && <p className="mb-3 mt-1 text-sm text-text-secondary">{group.description}</p>}<div className="space-y-2">{group.operations.map(({ path, method, operation }) => <OperationCard key={method + ":" + path} path={path} method={method} operation={operation} spec={spec} apiBase={apiBase} apiKey={apiKey} onMissingKey={() => { setKeyError("Paste an API key above or create one in this section."); document.getElementById("get-a-key")?.scrollIntoView({ behavior: "smooth" }); }} />)}</div></section>)}</div>}
-    </section>
-  </div></main>;
+          <section id="authentication" className="devdocs-section">
+            <Heading kicker="ACCESS & SECURITY" title="Authentication" description="Send a user-managed API key in the X-API-Key header for protected repository API operations." />
+            <div className="devdocs-auth-grid">
+              <div><h3>API client authentication</h3><p>Public documentation can be read without signing in. API requests use an API client key; user session cookies are not a substitute for the documented <code>X-API-Key</code> credential.</p><div className="devdocs-auth__api-key"><code>X-API-Key: $SLR_API_KEY</code></div><ul><li>Keep keys on a trusted server and out of browser bundles.</li><li>Never commit credentials to source control; use environment variables or a secret manager.</li><li>Use least-privilege scopes and rotate or revoke keys through the API key manager when needed.</li></ul></div>
+              <div><h3>Available scopes</h3><div className="devdocs-auth-scopes">{Object.entries(scopeDescriptions).map(([scope, description]) => <div key={scope}><code>{scope}</code><span>{description}</span></div>)}</div><p className="devdocs-muted">Self-service keys are read-only. Repository imports require the administrator-provisioned <code>repository:write</code> scope.</p></div>
+            </div>
+          </section>
+
+          <section id="api-keys" className="devdocs-section">
+            <Heading kicker="CREDENTIALS" title="API keys" description="Create and manage your personal repository API keys from your account. A newly created secret is shown once." />
+            <p className="devdocs-prose">Keys are scoped to your account. Self-service keys receive the repository read, project read, and analysis read scopes. They do not grant import or other write access.</p>
+            {isAuthenticated ? <div className="devdocs-key-actions"><Link to="/profile/api-keys" className="devdocs-secondary-button">Manage API keys</Link><button type="button" className="devdocs-primary-button" onClick={() => setShowCreate((value) => !value)}>{showCreate ? "Close key form" : "Create API key here"}</button></div> : <button type="button" className="devdocs-primary-button" onClick={() => navigate("/auth/signin", { state: { from: "/repository-api-docs" } })}>Sign in to create a key</button>}
+            {showCreate && isAuthenticated && <form className="devdocs-key-form" onSubmit={(event) => void createKey(event)}><label className="devdocs-field"><span>Key name</span><input value={keyName} onChange={(event) => setKeyName(event.target.value)} required maxLength={80} placeholder="For example, Local research client" /></label><p className="devdocs-muted">Granted scopes: {defaultScopes.map((scope) => <code key={scope}>{scope} </code>)}</p><button type="submit" className="devdocs-primary-button" disabled={creatingKey || !keyName.trim()}>{creatingKey ? "Creating…" : "Create key"}</button>{keyError && <p role="alert" className="devdocs-alert">{keyError}</p>}</form>}
+            {createdKey && <div className="devdocs-key-created" role="status"><strong>Copy this secret now. It will not be shown again.</strong><label className="devdocs-field"><span>New API key</span><input readOnly value={createdKey.secret} onFocus={(event) => event.currentTarget.select()} /></label><p>{createdKey.key.displayName} · {createdKey.key.scopes.join(", ")}</p></div>}
+            <label className="devdocs-field devdocs-key-input"><span>API key for Try it out</span><input ref={apiKeyRef} type="password" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Paste a key for this page session"/><small>This key stays in memory for this page session and is sent only in the X-API-Key request header.</small></label>
+          </section>
+
+          <section id="pagination" className="devdocs-section">
+            <Heading kicker="DEVELOPER GUIDE" title="Cursor pagination" description="Collection operations expose limit and cursor inputs in the API contract. Use the response cursor fields to request the next page." />
+            <p className="devdocs-prose">The maximum page size, defaults, and cursor behavior are endpoint-specific; check each operation’s parameter table and response schema. Do not assume an offset or a cursor field when it is absent from that operation’s contract.</p>
+            <div className="devdocs-callout"><strong>Tip:</strong> Search repository works with a smaller <code>limit</code> first, then follow the next cursor returned by the endpoint.</div>
+          </section>
+
+          <section id="filtering" className="devdocs-section">
+            <Heading kicker="DEVELOPER GUIDE" title="Filtering works" description="Use the filters listed on each works operation to narrow a search. The available fields differ by endpoint." />
+            <p className="devdocs-prose">The works search and facets operations describe supported query parameters in the live API reference. Query names, types, constraints, and defaults below are read directly from OpenAPI; use those operation tables as the source of truth.</p>
+          </section>
+
+          <section id="errors" className="devdocs-section">
+            <Heading kicker="DEVELOPER GUIDE" title="Errors & rate limits" description="Handle HTTP errors explicitly and avoid retrying requests faster than the service allows." />
+            <div className="devdocs-guides"><article className="devdocs-guide"><h3>Authentication & permissions</h3><p>401 indicates missing or invalid authentication. A 403 indicates the key lacks required access; each endpoint’s OpenAPI response documents its permission requirement.</p></article><article className="devdocs-guide"><h3>Rate limiting</h3><p>The repository API rate limiter allows up to 120 requests per minute per client and IP. A 429 response includes <code>Retry-After</code>; wait for that interval before retrying.</p></article><article className="devdocs-guide"><h3>Retry safely</h3><p>Use bounded retries with backoff for transient network or 5xx errors. Do not blindly retry write operations; imports support an idempotency key in the API contract.</p></article></div>
+          </section>
+
+          <section id="api-reference" className="devdocs-section devdocs-reference">
+            <div className="devdocs-reference__heading"><div><p className="devdocs-section-kicker">LIVE OPENAPI CONTRACT</p><h2 className="devdocs-section__title">API reference</h2><p className="devdocs-section__description">Endpoints, parameters, request bodies, and responses are generated from the deployed OpenAPI specification.</p></div><label className="devdocs-reference__search"><FiSearch aria-hidden="true" /><input aria-label="Search repository API" value={referenceQuery} onChange={(event) => setReferenceQuery(event.target.value)} placeholder="Search repository works…" /></label></div>
+            {!spec && !loadError && <div className="devdocs-loading" role="status"><span />Loading the live API contract…</div>}
+            {loadError && !groups.length && <div className="devdocs-empty"><strong>API reference unavailable</strong><p>Could not load the deployed contract. Retry the page or open the OpenAPI JSON directly.</p><a href={jsonUrl} target="_blank" rel="noreferrer">Open API specification</a></div>}
+            {spec && !groups.length && <div className="devdocs-empty"><strong>No operations found in the API contract</strong><p>The published OpenAPI document does not contain endpoint definitions.</p></div>}
+            {groups.length > 0 && filteredGroups.length === 0 && <p className="devdocs-empty">No endpoints match “{referenceQuery}”.</p>}
+            {filteredGroups.map((group) => {
+              const groupId = `reference-${slug(group.name)}`;
+              return <section id={groupId} className="devdocs-reference__group" key={group.name}><h3>{group.name}</h3><p>{group.description || `${group.operations.length} operations in this API group.`}</p>{group.operations.map((endpoint) => <ApiOperationCard key={endpointId(endpoint)} endpoint={endpoint} spec={spec!} apiBase={apiBase} apiKey={apiKey} onMissingKey={onMissingKey} onSelectEndpoint={setSelectedEndpoint} related={endpoints.filter((candidate) => candidate !== endpoint && candidate.operation.tags?.some((tag) => endpoint.operation.tags?.includes(tag))).slice(0, 4)} />)}</section>;
+            })}
+          </section>
+
+          <section id="openapi-json" className="devdocs-section">
+            <Heading kicker="RESOURCES" title="OpenAPI specification" description="Use the deployed JSON contract with your preferred client generator, API tooling, or contract validation workflow." />
+            <div className="devdocs-openapi-link"><code>{jsonUrl}</code><a href={jsonUrl} target="_blank" rel="noreferrer" className="devdocs-secondary-button">Open specification</a></div>
+            <p className="devdocs-muted">Contract version {spec?.info?.version || "loading"} · {groups.reduce((count, group) => count + group.operations.length, 0)} documented operations</p>
+          </section>
+        </main>
+        <DocsRightRail activeId={activeId} endpoint={selectedEndpoint || currentEndpoint} group={currentGroup} spec={spec} apiBase={apiBase} onNavigate={navigateTo} />
+      </div>
+      <DocsSearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} entries={searchEntries} onSelect={(entry) => navigateTo(entry.id)} />
+    </div>
+  );
 }

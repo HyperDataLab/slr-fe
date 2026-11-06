@@ -2,7 +2,7 @@ import { Suspense, useState } from "react";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
 import ClientWorkspaceSidebar from "../components/layout/ClientWorkspaceSidebar";
-import { Outlet, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import type { RootState } from "../redux/store";
 import AdminAccessGuard from "../components/auth/AdminAccessGuard";
@@ -10,6 +10,7 @@ import SectionGuard from "../components/auth/SectionGuard";
 import SignalRConnectionManager from "../components/SignalRConnectionManager";
 import { ClientWorkspaceSidebarContext } from "../contexts/ClientWorkspaceSidebarContext";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
+import PageTransition from "../components/common/PageTransition";
 
 export default function MainLayout() {
   const { pathname } = useLocation();
@@ -27,10 +28,11 @@ export default function MainLayout() {
   const isChecklistEditorWorkspace = /\/projects\/[^/]+\/checklists\/[^/]+(?:\/|$)/.test(pathname);
   const isProjectsRoute = pathname === "/projects" || pathname.startsWith("/projects/");
   const isProjectListRoute = pathname === "/projects";
+  const isRepositoryApiDocs = pathname === "/repository-api-docs";
   const isViewportWorkspace = isScreeningWorkspace || isFullTextScreeningWorkspace || isChecklistEditorWorkspace || isQualityAssessmentWorkspace;
-  const showHeader = isProjectListRoute || (!isScreeningWorkspace && !isFullTextScreeningWorkspace && !isReviewProcessDashboard &&
+  const showHeader = !isRepositoryApiDocs && (isProjectListRoute || (!isScreeningWorkspace && !isFullTextScreeningWorkspace && !isReviewProcessDashboard &&
     !isDataExtractionWorkspace && !isQualityAssessmentWorkspace &&
-    !isSynthesisWorkspace && !isPrismaReportWorkspace && !isChecklistEditorWorkspace && !isProjectsRoute);
+    !isSynthesisWorkspace && !isPrismaReportWorkspace && !isChecklistEditorWorkspace && !isProjectsRoute));
   const showClientSidebar = isAuthenticated && (
     showHeader || isProjectsRoute || isReviewProcessDashboard || isScreeningWorkspace || isFullTextScreeningWorkspace ||
     isDataExtractionWorkspace || isQualityAssessmentWorkspace
@@ -67,12 +69,7 @@ export default function MainLayout() {
                   </div>
                 }
               >
-                <div
-                  key={pathname}
-                  className={`route-content-enter ${isViewportWorkspace ? "h-full min-h-0" : ""}`}
-                >
-                  <Outlet />
-                </div>
+                <PageTransition className={isViewportWorkspace ? "h-full min-h-0" : ""} />
               </Suspense>
             </ClientWorkspaceSidebarContext.Provider>
           </SectionGuard>
