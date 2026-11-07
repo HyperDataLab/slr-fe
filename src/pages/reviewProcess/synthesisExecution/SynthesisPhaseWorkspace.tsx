@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BarChart3, FileSearch, Layers3, NotebookText } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import LoadingSpinner from "../../../components/ui/LoadingSpinner";
 import { useProjectMember } from "../../../hooks/useProjectMember";
 import { useReviewProcess } from "../../../hooks/useReviewProcesses";
-import { formatDate } from "../../../utils/dateFormat";
 import { useSynthesisWorkspace } from "./hooks/useSynthesisWorkspace";
 import DescriptiveChartsWorkspace from "./DescriptiveChartsWorkspace";
 import SynthesisDashboard from "./SynthesisDashboard";
@@ -73,6 +72,7 @@ export default function SynthesisPhaseWorkspace() {
   const [isStrategyGuidelinesOpen, setIsStrategyGuidelinesOpen] =
     useState(false);
   const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const synthesisBasePath = `/projects/${projectId}/processes/${processId}/synthesis`;
 
   const activeSection = resolveSection(location.pathname);
@@ -104,6 +104,27 @@ export default function SynthesisPhaseWorkspace() {
     navigate(`/projects/${projectId}/processes/${processId}`);
   };
 
+  const navigateToSection = (section: SynthesisSectionKey) => {
+    if (section !== activeSection) setTransitioningSection(section);
+    navigate(`${synthesisBasePath}/${section}`);
+  };
+
+  const handleTabKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
+    if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = tabs.length - 1;
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    tabRefs.current[nextIndex]?.focus();
+    navigateToSection(tabs[nextIndex].key);
+  };
+
   const handleStart = async () => {
     await workspace.startSynthesis();
   };
@@ -115,31 +136,26 @@ export default function SynthesisPhaseWorkspace() {
       {
         key: "overview" as const,
         label: SECTION_LABELS.overview,
-        compactLabel: "Overview",
         icon: Layers3,
       },
       {
         key: "descriptive-charts" as const,
         label: SECTION_LABELS["descriptive-charts"],
-        compactLabel: "Charts",
         icon: BarChart3,
       },
       {
         key: "thematic-analysis" as const,
         label: SECTION_LABELS["thematic-analysis"],
-        compactLabel: "Themes",
         icon: NotebookText,
       },
       {
         key: "rq-reporting" as const,
         label: SECTION_LABELS["rq-reporting"],
-        compactLabel: "RQ",
         icon: NotebookText,
       },
       {
         key: "artifacts" as const,
         label: SECTION_LABELS.artifacts,
-        compactLabel: "Artifacts",
         icon: FileSearch,
       },
     ],
@@ -227,9 +243,9 @@ export default function SynthesisPhaseWorkspace() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-secondary">
-      <header className="border-b border-border bg-surface-white shadow-none">
-        <div className="mx-auto flex max-w-[1520px] flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+    <div className="min-h-screen bg-surface-white">
+      <header className="border-b border-border bg-surface-white">
+        <div className="mx-auto flex max-w-[1520px] flex-col gap-3 px-4 py-3 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -240,19 +256,16 @@ export default function SynthesisPhaseWorkspace() {
             >
               <ArrowLeft className="h-5 w-5" aria-hidden="true" />
             </button>
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
-              <Layers3 className="h-5 w-5" aria-hidden="true" />
-            </div>
             <div className="min-w-0">
-              <h1 className="review-process-header-title line-clamp-2 text-base font-semibold leading-5 text-text-primary sm:text-lg">
+              <h1 className="review-process-header-title truncate text-base font-semibold leading-5 text-text-primary sm:text-lg">
                 {reviewProcess?.name || reviewProcess?.processName || "Systematic Literature Review"}
               </h1>
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="text-xs text-text-secondary">
+                <span className="text-sm text-text-secondary">
                   Synthesis / {SECTION_LABELS[activeSection]}
                 </span>
-                <span
-                  className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+                {activeSection !== "overview" ? <span
+                  className={`inline-flex items-center gap-1.5 text-sm font-medium ${
                     workspace.processStatus === "InProgress"
                       ? "text-text-secondary"
                       : workspace.processStatus === "Completed"
@@ -268,44 +281,17 @@ export default function SynthesisPhaseWorkspace() {
                       : workspace.processStatus === "NotStarted"
                         ? "Not started"
                         : (workspace.processStatus ?? "")}
-                </span>
+                </span> : null}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-12 sm:pl-14 lg:gap-x-5 lg:pl-0">
-            <div className="text-xs text-text-secondary">
-              <div className="text-[10px] font-medium text-text-muted">Studies</div>
-              <div className="mt-0.5 font-medium text-text-primary">
-                {workspace.workspace?.totalExtractedPapers ?? 0} extracted
-              </div>
-            </div>
-            <div className="hidden h-7 w-px bg-border/70 sm:block" aria-hidden="true" />
-            <div className="text-xs text-text-secondary">
-              <div className="text-[10px] font-medium text-text-muted">Started</div>
-              <div className="mt-0.5 font-medium text-text-primary">
-                {formatDate(workspace.workspace?.process.startedAt ?? "")}
-              </div>
-            </div>
-            <div className="hidden h-7 w-px bg-border/70 sm:block" aria-hidden="true" />
-            <div className="text-xs text-text-secondary">
-              <div className="text-[10px] font-medium text-text-muted">Last updated</div>
-              <div className="mt-0.5 font-medium text-text-primary">
-                {formatDate(reviewProcess?.modifiedAt ?? workspace.workspace?.process.completedAt ?? workspace.workspace?.process.startedAt ?? "")}
-              </div>
-            </div>
-            {Boolean(workspace.processStatus) && isLeader && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-12 md:justify-end md:pl-0">
+            {workspace.processStatus === "InProgress" && isLeader && (
               <Button
-                variant={
-                  workspace.processStatus === "InProgress" &&
-                  workspace.allFindingsFinalized &&
-                  !isReadOnly
-                    ? "success"
-                    : "outline"
-                }
+                variant={workspace.allFindingsFinalized && !isReadOnly ? "success" : "outline"}
                 onClick={workspace.completeSynthesis}
                 disabled={
-                  workspace.processStatus !== "InProgress" ||
                   !workspace.allFindingsFinalized ||
                   isReadOnly ||
                   workspace.isCompleting
@@ -321,66 +307,71 @@ export default function SynthesisPhaseWorkspace() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1440px] px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
-        <div className="mb-6 flex flex-col gap-2 border-b border-border/70 xl:min-h-14 xl:flex-row xl:items-stretch xl:gap-5">
-          <div className="inline-flex min-h-14 max-w-full shrink-0 items-center gap-3 rounded-xl border border-border/50 bg-surface-white/70 px-3 py-2 sm:px-4">
-            <div
-              className="flex min-w-0 items-center gap-3"
-              title="When enabled, synthesis views include high-quality studies only."
-            >
-              <div className="flex min-w-0 flex-col">
-                <span className="text-xs font-medium leading-4 text-text-primary">Sensitivity analysis</span>
-                <span className="text-[11px] leading-4 text-text-secondary">Exclude low-quality studies</span>
-              </div>
-              <button
-                type="button"
-                id="sensitivity-toggle"
-                role="switch"
-                aria-label="Exclude low-quality studies"
-                aria-checked={filterHighQualityOnly}
-                onClick={() => setFilterHighQualityOnly((v) => !v)}
-                className="inline-flex h-11 w-[52px] shrink-0 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
-              >
-                <span aria-hidden="true" className={`relative inline-flex h-6 w-11 items-center rounded-full motion-safe:transition-colors motion-safe:duration-150 motion-reduce:transition-none ${filterHighQualityOnly ? "bg-primary" : "bg-border"}`}>
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-surface-white shadow-none motion-safe:transition-transform motion-safe:duration-150 motion-reduce:transform-none motion-reduce:transition-none ${filterHighQualityOnly ? "translate-x-5" : "translate-x-1"}`} />
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <nav aria-label="Synthesis sections" className="min-w-0 flex-1 overflow-x-auto md:self-stretch">
-            <div className="flex min-h-14 min-w-max items-center gap-0.5 sm:gap-2 md:h-full md:items-stretch md:gap-4">
-              {tabs.map((tab) => {
+      <main className="mx-auto max-w-[1440px] bg-surface-white px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+        <div className="mb-5 flex flex-col gap-2 border-b border-border/70 pb-2 lg:flex-row lg:items-center lg:justify-between">
+          <nav aria-label="Synthesis sections" role="tablist" className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+            <div className="flex min-h-11 min-w-max items-stretch gap-1 sm:gap-2">
+              {tabs.map((tab, index) => {
                 const Icon = tab.icon;
                 const isActive = activeSection === tab.key;
 
                 return (
                   <button
                     key={tab.key}
+                    ref={(element) => { tabRefs.current[index] = element; }}
                     type="button"
-                    onClick={() => {
-                      if (!isActive) setTransitioningSection(tab.key);
-                      navigate(`${synthesisBasePath}/${tab.key}`);
-                    }}
+                    role="tab"
+                    tabIndex={isActive ? 0 : -1}
+                    onClick={() => navigateToSection(tab.key)}
+                    onKeyDown={(event) => handleTabKeyDown(event, index)}
                     aria-label={tab.label}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`group relative inline-flex min-h-11 min-w-11 items-center justify-center gap-1 px-0.5 text-sm font-medium motion-safe:transition-colors motion-safe:duration-150 after:absolute after:bottom-[-1px] after:left-1 after:right-1 after:h-0.5 after:rounded-full after:content-[''] after:motion-safe:transition-colors focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-1 sm:gap-2 sm:px-2 md:h-full md:px-3 motion-reduce:transition-none ${
+                    aria-selected={isActive}
+                    aria-controls="synthesis-content"
+                    id={`synthesis-tab-${tab.key}`}
+                    className={`group relative inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap px-2 text-sm font-medium motion-safe:transition-colors motion-safe:duration-150 after:absolute after:bottom-[-1px] after:left-1 after:right-1 after:h-0.5 after:rounded-full after:content-[''] after:motion-safe:transition-colors focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-1 sm:gap-2 sm:px-3 motion-reduce:transition-none ${
                       isActive
                         ? "text-primary after:bg-primary"
                         : "text-text-secondary after:bg-transparent hover:text-text-primary"
                     }`}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden="true" />
-                    <span className="sm:hidden">{tab.compactLabel}</span>
-                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span>{tab.label}</span>
                   </button>
                 );
               })}
             </div>
           </nav>
+
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border/70 pt-2 lg:justify-start lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+            <span className="min-w-0 text-sm leading-5 text-text-secondary" id="sensitivity-description">
+              <span className="block font-medium text-text-primary">Sensitivity analysis</span>
+              Filters charts and thematic evidence to high-quality studies.
+            </span>
+            <button
+              type="button"
+              id="sensitivity-toggle"
+              role="switch"
+              aria-label="Exclude low-quality studies"
+              aria-describedby="sensitivity-description"
+              aria-checked={filterHighQualityOnly}
+              onClick={() => setFilterHighQualityOnly((value) => !value)}
+              className="inline-flex h-11 w-[52px] shrink-0 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+            >
+              <span aria-hidden="true" className={`relative inline-flex h-6 w-11 items-center rounded-full motion-safe:transition-colors motion-safe:duration-150 motion-reduce:transition-none ${filterHighQualityOnly ? "bg-primary" : "bg-border"}`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-surface-white shadow-none motion-safe:transition-transform motion-safe:duration-150 motion-reduce:transform-none motion-reduce:transition-none ${filterHighQualityOnly ? "translate-x-5" : "translate-x-1"}`} />
+              </span>
+            </button>
+          </div>
         </div>
 
-        <div key={activeSection} className={transitioningSection === activeSection ? "ui-section-enter" : undefined}>
+        <div
+          key={activeSection}
+          id="synthesis-content"
+          role="tabpanel"
+          aria-labelledby={`synthesis-tab-${activeSection}`}
+          tabIndex={-1}
+          className={transitioningSection === activeSection ? "ui-section-enter" : undefined}
+        >
         <SynthesisWorkspaceErrorBoundary>
           {activeSection === "artifacts" && projectId ? (
             <SlrArtifactsWorkspace projectId={projectId} />

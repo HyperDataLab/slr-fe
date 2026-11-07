@@ -4,6 +4,7 @@ import Button from "../../../../components/ui/Button";
 import { FiSearch, FiUserPlus, FiUsers } from "react-icons/fi";
 import { cn } from "../../../../utils/cn";
 import type { ProjectMember } from "../../../../types/project";
+import { getInitials } from "../../../../utils/getInitials";
 
 interface QAAssignModalProps {
   isOpen: boolean;
@@ -131,9 +132,7 @@ export function QAAssignModal({
                   hasResolution;
                 const displayName =
                   member.fullName || member.userName || member.email || "Team member";
-                const initials = (displayName || "?")
-                  .substring(0, 2)
-                  .toUpperCase();
+                const initials = getInitials(displayName);
 
                 return (
                   <label

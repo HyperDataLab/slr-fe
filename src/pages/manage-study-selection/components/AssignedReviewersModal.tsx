@@ -3,6 +3,7 @@ import { Users } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import { cn } from "../../../utils/cn";
 import type { AssignedReviewer } from "../../../types/studySelection";
+import { getInitials } from "../../../utils/getInitials";
 
 interface AssignedReviewersModalProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ const AssignedReviewersModal: React.FC<AssignedReviewersModalProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center text-accent font-bold text-xs uppercase">
-                    {reviewer.reviewerName?.charAt(0) || "?"}
+                    {getInitials(reviewer.reviewerName)}
                   </div>
                   <div className="flex flex-col">
                     <span className="text-sm font-bold text-text-primary">

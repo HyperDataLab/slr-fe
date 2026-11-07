@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
-import { ArrowLeft, Download, FileCheck2 } from "lucide-react";
+import { Download } from "lucide-react";
 import Button from "../../../../components/ui/Button";
 
 interface QAHeaderProps {
-  onBack: () => void;
   stats: {
     total: number;
     completed: number;
@@ -19,7 +18,6 @@ interface QAHeaderProps {
 }
 
 export function QAHeader({
-  onBack,
   stats,
   phaseStatus,
   unavailable = false,
@@ -39,18 +37,7 @@ export function QAHeader({
   return (
     <header className="relative z-10 shrink-0 border-b border-border bg-surface-white">
       <div className="mx-auto flex max-w-[1680px] flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-8">
-        <div className="flex min-w-0 items-center gap-3 lg:flex-1">
-          <button
-            onClick={onBack}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-bg-primary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
-            title="Back"
-            aria-label="Back"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-accent/10 bg-primary-light text-accent">
-            <FileCheck2 size={20} />
-          </div>
+        <div className="flex min-w-0 items-center lg:flex-1">
           <div className="min-w-0">
             <h1 className="review-process-header-title line-clamp-2 text-lg font-semibold leading-6 tracking-tight text-text-primary sm:text-xl">
               Quality Assessment
@@ -69,7 +56,7 @@ export function QAHeader({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 pl-1 sm:pl-14 lg:pl-0">
+        <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface-white px-3.5 py-2.5 sm:gap-4">
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wide text-text-secondary">Studies</div>

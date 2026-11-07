@@ -15,6 +15,7 @@ import {
   type PaperAiAnalysisResult,
 } from "../../../../services/paperAiAnalysisService";
 import ArgumentGraph from "./ArgumentGraph";
+import ToulminModelGraph from "./ToulminModelGraph";
 
 const isActive = (status: string) => status === "QUEUED" || status === "PROCESSING";
 
@@ -319,7 +320,7 @@ function PaperDetail({ projectId, paperId, canReview }: { projectId: string; pap
       <div role="tabpanel" id={`${modelTabPrefix}-panel`} aria-labelledby={`${modelTabPrefix}-tab-${activeModel}`} tabIndex={0} className="space-y-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
         {activeModel === "imrad" && <ModelLaunchCard title="IMRaD analysis" description="Review Introduction, Methods, Results, Discussion, and their source quotations." actionLabel="View IMRaD analysis" onClick={() => setIsImradModalOpen(true)} />}
 
-        {activeModel === "toulmin" && <ModelLaunchCard title="Toulmin Model analysis" description="Review Claim, Grounds / Data, Warrant, Backing, Qualifier, and Rebuttal for each argument." actionLabel="View Toulmin analysis" onClick={() => setIsToulminModalOpen(true)} />}
+        {activeModel === "toulmin" && <div className="space-y-3"><ModelLaunchCard title="Toulmin Model analysis" description="Review Claim, Grounds / Data, Warrant, Backing, Qualifier, and Rebuttal for each argument." actionLabel="View Toulmin analysis" onClick={() => setIsToulminModalOpen(true)} /><ToulminModelGraph argumentsList={result.toulmin_arguments} /></div>}
 
         {activeModel === "aif" && <ArgumentGraph graph={result.aif_graph} onReviewEdge={canReviewCurrent ? (edge_id, decision, note) => edgeReviewMutation.mutate({ analysis_id: result.source.analyzed_at, edge_id, decision, note }) : undefined} isReviewPending={edgeReviewMutation.isPending} />}
       </div>

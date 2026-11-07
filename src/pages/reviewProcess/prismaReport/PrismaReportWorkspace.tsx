@@ -86,6 +86,28 @@ export default function PrismaReportWorkspace() {
   // React Query fetches on mount automatically — no useEffect needed
 
   const [cooldown, setCooldown] = useState(0);
+  const [isExportingProjectPackage, setIsExportingProjectPackage] = useState(false);
+
+  const handleDownloadProjectPackage = useCallback(async () => {
+    if (!projectId || isExportingProjectPackage) return;
+    setIsExportingProjectPackage(true);
+    try {
+      const blob = await prismaReportService.downloadProjectPackage(projectId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `slr-project-${projectId}.slr`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toastSuccess("Project package downloaded");
+    } catch {
+      toastInfo("Could not export the project package. Try again.");
+    } finally {
+      setIsExportingProjectPackage(false);
+    }
+  }, [projectId, isExportingProjectPackage]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -139,9 +161,9 @@ export default function PrismaReportWorkspace() {
   const isLoading = isLoadingLatest || isLoadingSelected;
 
   return (
-    <div className="min-h-screen bg-bg-secondary print:bg-surface-white">
+    <div className="min-h-screen bg-surface-white print:bg-surface-white">
       {/* ── Sticky Header ── */}
-      <PrismaReportHeader onBack={handleBack}>
+      <PrismaReportHeader>
         <PrismaExportActions
           hasReport={hasReport}
           isGenerating={isGenerating}
@@ -151,6 +173,8 @@ export default function PrismaReportWorkspace() {
           onGenerate={handleGenerate}
           onDownloadDiagram={downloadPrismaDiagram}
           onDownloadWritingExport={() => void handleDownloadWritingExport()}
+          onDownloadProjectPackage={projectId ? () => void handleDownloadProjectPackage() : undefined}
+          isExportingProjectPackage={isExportingProjectPackage}
           onExportPNG={handleExportPNG}
           nodes={nodes}
           includedNode={includedNode}
@@ -160,7 +184,15 @@ export default function PrismaReportWorkspace() {
       </PrismaReportHeader>
 
       {/* ── Main Content ── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-7 space-y-6">
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-6">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="-ml-2 inline-flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm text-text-secondary transition-colors hover:bg-bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
+        >
+          <FiArrowLeft aria-hidden="true" className="h-4 w-4" />
+          Back to project
+        </button>
         <PrismaSourceClassification projectId={effectiveProjectId} />
         {/* Error banner */}
         {(latestError || generateError || selectedError) && (
@@ -260,7 +292,7 @@ export default function PrismaReportWorkspace() {
             />
 
             {/* Flow diagram — core visual */}
-            <section className="bg-surface-white border border-border/70 rounded-xl p-4 sm:p-6 shadow-none print:shadow-none print:border-0">
+            <section className="bg-surface-white border border-border rounded-xl p-4 sm:p-5 print:shadow-none print:border-0">
               <div className="mb-4">
                 <h2 className="text-lg font-semibold text-text-primary mb-1">
                   PRISMA 2020 Flow Diagram
@@ -279,10 +311,10 @@ export default function PrismaReportWorkspace() {
 
             {/* Bottom grid: Exclusion table + Report history */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-5 items-start">
-              <div className="lg:col-span-3 bg-surface-white border border-border/70 rounded-xl p-4 sm:p-5 shadow-none">
+              <div className="lg:col-span-3 bg-surface-white border border-border rounded-xl p-4 sm:p-5">
                 <PrismaExclusionTable nodes={nodes} isLoading={isLoading} />
               </div>
-              <div className="lg:col-span-2 bg-surface-white border border-border/70 rounded-xl p-4 sm:p-5 shadow-none">
+              <div className="lg:col-span-2 bg-surface-white border border-border rounded-xl p-4 sm:p-5">
                 <PrismaReportHistory
                   reports={reportHistory}
                   isLoading={isLoadingHistory}

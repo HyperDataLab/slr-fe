@@ -25,9 +25,7 @@ import {
   useChangePasswordMutation,
 } from "../../hooks/useUsers";
 import { useMyProjects } from "../../hooks/useProjects";
-
-const getInitials = (name: string) =>
-  name.trim().charAt(0).toUpperCase() || "S";
+import { getInitials } from "../../utils/getInitials";
 
 function CopyField({ label, value, displayValue }: { label: string; value: string; displayValue?: string }) {
   const [copied, setCopied] = useState(false);

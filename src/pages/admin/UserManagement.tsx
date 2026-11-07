@@ -40,6 +40,7 @@ import ChangePreviewModal from "../../components/admin/user-management/ChangePre
 import StatusConfirmModal from "../../components/admin/user-management/StatusConfirmModal";
 import type { User } from "../../types/user";
 import { toastSuccess, toastError } from "../../utils/toast";
+import { getInitials } from "../../utils/getInitials";
 
 // Helper Components
 const RoleBadge: React.FC<{ role: string }> = ({ role }) => {
@@ -326,7 +327,7 @@ const UserManagement: React.FC = () => {
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="relative shrink-0">
                           <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-primary-light text-[13px] font-semibold text-accent">
-                            {user.fullName.charAt(0)}
+                            {getInitials(user.fullName)}
                           </div>
                           {user.isActive && (
                             <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-success" />
@@ -517,7 +518,7 @@ const UserManagement: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-primary-light text-[13px] font-semibold text-accent">
-                    {user.fullName.charAt(0)}
+                    {getInitials(user.fullName)}
                   </div>
                   <div className="min-w-0 space-y-0.5">
                     <h4 className="truncate text-[13px] font-semibold text-text-secondary">

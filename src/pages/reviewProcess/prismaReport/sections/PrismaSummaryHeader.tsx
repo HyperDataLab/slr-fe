@@ -1,11 +1,12 @@
 // PRISMA Summary Header — Top summary cards showing key metrics
 
 import {
-  FiDatabase,
-  FiCopy,
-  FiFilter,
   FiCheckCircle,
+  FiCopy,
+  FiDatabase,
+  FiFilter,
 } from "react-icons/fi";
+import StatCard from "../../../../components/ui/StatCard";
 import type { PrismaSummaryStats } from "../../../../types/prismaReport";
 import { SUMMARY_CARDS } from "../constants";
 
@@ -16,38 +17,21 @@ interface PrismaSummaryHeaderProps {
 }
 
 const CARD_ICONS: Record<string, React.ReactNode> = {
-  totalIdentified: <FiDatabase className="w-5 h-5" />,
-  duplicatesRemoved: <FiCopy className="w-5 h-5" />,
-  recordsScreened: <FiFilter className="w-5 h-5" />,
-  studiesIncluded: <FiCheckCircle className="w-5 h-5" />,
+  totalIdentified: <FiDatabase className="h-4 w-4" aria-hidden="true" />,
+  duplicatesRemoved: <FiCopy className="h-4 w-4" aria-hidden="true" />,
+  recordsScreened: <FiFilter className="h-4 w-4" aria-hidden="true" />,
+  studiesIncluded: <FiCheckCircle className="h-4 w-4" aria-hidden="true" />,
 };
-
-const COLOR_MAP: Record<string, { icon: string; value: string }> =
-  {
-    indigo: {
-      icon: "text-primary",
-      value: "text-text-primary",
-    },
-    orange: {
-      icon: "text-warning",
-      value: "text-text-primary",
-    },
-    blue: {
-      icon: "text-primary",
-      value: "text-text-primary",
-    },
-    green: {
-      icon: "text-success",
-      value: "text-text-primary",
-    },
-  };
 
 function SkeletonCard() {
   return (
-    <div className="px-5 py-4 motion-safe:animate-pulse motion-reduce:animate-none">
-      <div className="h-7 w-12 bg-bg-secondary rounded mb-2" />
-      <div className="h-4 w-28 bg-bg-secondary rounded mb-2" />
-      <div className="h-3 w-32 bg-bg-secondary rounded" />
+    <div
+      aria-hidden="true"
+      className="min-h-[104px] animate-pulse rounded-xl border border-border bg-surface-white p-3.5 motion-reduce:animate-none"
+    >
+      <div className="h-3 w-24 rounded bg-bg-secondary" />
+      <div className="mt-3 h-7 w-12 rounded bg-bg-secondary" />
+      <div className="mt-2 h-3 w-32 max-w-full rounded bg-bg-secondary" />
     </div>
   );
 }
@@ -59,7 +43,7 @@ export default function PrismaSummaryHeader({
 }: PrismaSummaryHeaderProps) {
   return (
     <section aria-label="Report overview">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-text-primary">Report Overview</h2>
         {generatedAt && (
           <p className="text-xs text-text-secondary">
@@ -75,36 +59,19 @@ export default function PrismaSummaryHeader({
         )}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border/70 bg-surface-white p-2 shadow-none">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-          {isLoading
-            ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-            : SUMMARY_CARDS.map((card) => {
-              const colors = COLOR_MAP[card.colorScheme];
-              const value = stats[card.key];
-              return (
-                <div
-                  key={card.key}
-                  className="relative min-h-[112px] rounded-xl bg-bg-primary/65 p-4 sm:px-5 sm:py-4"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-lg bg-surface-white ${colors.icon}`}>
-                      {CARD_ICONS[card.key]}
-                    </span>
-                    <div className={`text-2xl sm:text-[28px] leading-8 font-semibold ${colors.value} tabular-nums`}>
-                      {value.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="text-sm text-text-primary font-medium">
-                    {card.label}
-                  </div>
-                  <div className="text-xs text-text-secondary mt-0.5">
-                    {card.description}
-                  </div>
-                </div>
-              );
-            })}
-        </div>
+      <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4">
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, index) => <SkeletonCard key={index} />)
+          : SUMMARY_CARDS.map((card) => (
+              <StatCard
+                key={card.key}
+                compact
+                label={card.label}
+                detail={card.description}
+                value={stats[card.key].toLocaleString()}
+                icon={CARD_ICONS[card.key]}
+              />
+            ))}
       </div>
     </section>
   );

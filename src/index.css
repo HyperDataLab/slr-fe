@@ -704,6 +704,11 @@ select:focus {
   display: none;
 }
 
+.evidence-matrix-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
 /* Smaller scrollbar for modal bodies so the scroll track stays unobtrusive. */
 .modal-scroll-area {
   scrollbar-width: thin;

@@ -10,6 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { getInitials } from "../../../../utils/getInitials";
 import {
   ChevronDown,
   ChevronLeft,
@@ -139,18 +140,6 @@ function mapStudyToPaperResponse(
     createdAt: raw.publicationDate ?? fallbackTimestamp,
     modifiedAt: raw.publicationDate ?? fallbackTimestamp,
   };
-}
-
-function getInitials(name: string): string {
-  if (!name) return "?";
-
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-
-  return parts[0].substring(0, 2).toUpperCase();
 }
 
 export default function DataExtractionDashboard({

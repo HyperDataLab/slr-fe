@@ -139,63 +139,63 @@ export default function ReviewProcessPanel({
                 aria-label={`Open review process: ${process.processName}`}
                 onClick={open}
                 onKeyDown={(event) => openProcessFromKeyboard(event, open)}
-                className={`group flex min-h-[226px] cursor-pointer flex-col rounded-xl border bg-surface-white p-4 transition duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_8px_24px_-16px_rgba(15,23,42,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 ${
+                className={`group flex cursor-pointer flex-col gap-4 rounded-xl border bg-surface-white p-5 transition duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_8px_24px_-16px_rgba(15,23,42,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 ${
                   hasSelected && isLeader ? "border-primary/40" : "border-border"
                 }`}
               >
-                <div className="flex min-w-0 items-start gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-light text-primary">
                     <FiLayers className="h-4 w-4" aria-hidden="true" />
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="line-clamp-2 min-h-10 break-words text-sm font-semibold leading-5 text-text-primary">
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <h3 className="min-w-0 flex-1 basis-64 break-words text-sm font-semibold leading-5 text-text-primary">
                       {process.processName}
                     </h3>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ring-1 ring-inset ${status.badge}`}>
-                        {status.icon}
-                        {status.label}
-                      </span>
-                      <span className="text-xs text-text-secondary">Independent screening</span>
+                    <span className="text-xs text-text-secondary">Independent screening</span>
+                  </div>
+                  <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ring-1 ring-inset ${status.badge}`}>
+                    {status.icon}
+                    {status.label}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                  <div className="min-w-[180px] flex-1 basis-60">
+                    <div className="mb-2 flex items-center justify-between text-xs">
+                      <span className="font-medium text-text-secondary">Progress</span>
+                      <span className="font-semibold tabular-nums text-text-primary">{progress}%</span>
+                    </div>
+                    <div
+                      className="h-1.5 overflow-hidden rounded-full bg-bg-secondary"
+                      role="progressbar"
+                      aria-label={`${process.processName} progress`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={progress}
+                    >
+                      <div className="h-full rounded-full bg-primary transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${progress}%` }} />
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-5">
-                  <div className="mb-2 flex items-center justify-between text-xs">
-                    <span className="font-medium text-text-secondary">Progress</span>
-                    <span className="font-semibold tabular-nums text-text-primary">{progress}%</span>
-                  </div>
-                  <div
-                    className="h-1.5 overflow-hidden rounded-full bg-bg-secondary"
-                    role="progressbar"
-                    aria-label={`${process.processName} progress`}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={progress}
-                  >
-                    <div className="h-full rounded-full bg-primary transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${progress}%` }} />
-                  </div>
-                </div>
+                  <dl className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                    <div className="flex items-baseline gap-1.5">
+                      <dt className="text-xs text-text-secondary">Papers</dt>
+                      <dd className="text-sm font-semibold tabular-nums text-text-primary">{process.totalPapers ?? 0}</dd>
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <dt className="text-xs text-text-secondary">Included</dt>
+                      <dd className="text-sm font-semibold tabular-nums text-text-primary">{process.totalIncludedPapers ?? 0}</dd>
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <dt className="text-xs text-text-secondary">Excluded</dt>
+                      <dd className="text-sm font-semibold tabular-nums text-text-primary">{process.totalExcludedPapers ?? 0}</dd>
+                    </div>
+                  </dl>
 
-                <dl className="mt-5 grid grid-cols-3 border-t border-border/70 pt-3.5">
-                  <div>
-                    <dt className="text-[11px] text-text-secondary">Papers</dt>
-                    <dd className="mt-0.5 text-base font-semibold tabular-nums text-text-primary">{process.totalPapers ?? 0}</dd>
-                  </div>
-                  <div className="border-l border-border/70 pl-3">
-                    <dt className="text-[11px] text-text-secondary">Included</dt>
-                    <dd className="mt-0.5 text-base font-semibold tabular-nums text-text-primary">{process.totalIncludedPapers ?? 0}</dd>
-                  </div>
-                  <div className="border-l border-border/70 pl-3">
-                    <dt className="text-[11px] text-text-secondary">Excluded</dt>
-                    <dd className="mt-0.5 text-base font-semibold tabular-nums text-text-primary">{process.totalExcludedPapers ?? 0}</dd>
-                  </div>
-                </dl>
-
-                <div className="mt-auto flex items-center justify-between border-t border-border/70 pt-3.5">
-                  <span className="text-sm font-medium text-primary">Open process</span>
-                  <FiArrowUpRight className="h-4 w-4 text-primary transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
+                  <span className="ml-auto flex items-center justify-between gap-2 text-sm font-medium text-primary">
+                    Open process
+                    <FiArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
+                  </span>
                 </div>
               </article>
             );

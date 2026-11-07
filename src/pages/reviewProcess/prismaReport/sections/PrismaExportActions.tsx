@@ -7,6 +7,7 @@ import {
   FiCopy,
   FiRefreshCw,
   FiClock,
+  FiArchive,
 } from "react-icons/fi";
 import type { PrismaNodeResponse } from "../../../../types/prismaReport";
 import { PRISMA_STAGE_LABELS } from "../../../../types/prismaReport";
@@ -27,6 +28,10 @@ interface PrismaExportActionsProps {
   onDownloadDiagram?: () => void;
   /** Download the structured PRISMA and included-study handoff for writing. */
   onDownloadWritingExport?: () => void;
+  /** Download a complete project data package (.slr). */
+  onDownloadProjectPackage?: () => void;
+  /** Whether the full project package is being prepared. */
+  isExportingProjectPackage?: boolean;
   /** Version label of the latest report */
   version?: string;
   /** Timestamp of last generation */
@@ -50,6 +55,8 @@ export default function PrismaExportActions({
   onGenerate,
   onDownloadDiagram,
   onDownloadWritingExport,
+  onDownloadProjectPackage,
+  isExportingProjectPackage = false,
   onExportPNG,
   nodes,
   includedNode,
@@ -142,8 +149,20 @@ export default function PrismaExportActions({
         </Button>
       )}
 
-      {/* Export buttons — only enabled when a report exists */}
+      {/* Report exports need a snapshot; the project package is independent of it. */}
       <div className="flex min-w-0 max-w-full flex-wrap items-center overflow-hidden rounded-xl border border-border/70 shadow-none">
+        <button
+          type="button"
+          onClick={onDownloadProjectPackage}
+          aria-label="Export complete project as an SLR package"
+          title="Download complete project package (.slr)"
+          disabled={!onDownloadProjectPackage || isExportingProjectPackage}
+          className="inline-flex min-h-11 items-center gap-1.5 px-3 py-3 text-sm font-medium text-text-primary bg-surface-white hover:bg-bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition-colors motion-reduce:transition-none"
+        >
+          <FiArchive className={`h-4 w-4 ${isExportingProjectPackage ? "motion-safe:animate-pulse motion-reduce:animate-none" : ""}`} />
+          <span className="sm:hidden">{isExportingProjectPackage ? "Preparing…" : ".slr"}</span>
+          <span className="hidden sm:inline">{isExportingProjectPackage ? "Preparing package…" : "Export .slr"}</span>
+        </button>
         <button
           type="button"
           onClick={onDownloadWritingExport}

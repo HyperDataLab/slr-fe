@@ -21,6 +21,7 @@ import { clearCurrentProject } from "../../redux/slices/projectSlice";
 import Button from "../ui/Button";
 import { toastWarning } from "../../utils/toast";
 import { useUnreadCount } from "../../hooks/useNotifications";
+import { getInitials } from "../../utils/getInitials";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -68,10 +69,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen = false, hid
 
   const handleSwitchAdmin = () => {
     navigate("/admin");
-  };
-
-  const getUserInitials = (name: string) => {
-    return name ? name.trim().charAt(0).toUpperCase() : "";
   };
 
   // Close dropdown when clicking outside
@@ -258,7 +255,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen = false, hid
         <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-text-muted">{user?.role || "User"}</p>
       </div>
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
-        {user?.name ? getUserInitials(user.name) : "U"}
+        {user?.name ? getInitials(user.name) : "U"}
       </div>
     </div>
   </>
@@ -289,7 +286,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen = false, hid
                         </p>
                       </div>
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
-                        {user?.name ? getUserInitials(user.name) : "U"}
+                        {user?.name ? getInitials(user.name) : "U"}
                       </div>
                     </button>
 
@@ -298,7 +295,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen = false, hid
                       <div id="header-user-menu" className="header-account-menu-enter absolute right-0 z-(--z-index-dropdown) mt-3 w-[248px] rounded-xl border border-border/80 bg-surface-white p-1.5 shadow-[0_12px_28px_-10px_rgba(18,35,49,0.22)]">
                         <div className="flex items-center gap-3 px-3 py-3">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
-                            {user?.name ? getUserInitials(user.name) : "U"}
+                            {user?.name ? getInitials(user.name) : "U"}
                           </div>
                           <div className="min-w-0">
                             <p className="truncate text-[12px] font-bold text-text-primary">
@@ -446,7 +443,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarOpen = false, hid
             <>
               <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
                 <div className="h-10 w-10 bg-accent text-bg-primary rounded-full flex items-center justify-center font-medium text-base">
-                  {user?.name ? getUserInitials(user.name) : "U"}
+                  {user?.name ? getInitials(user.name) : "U"}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-text-primary">

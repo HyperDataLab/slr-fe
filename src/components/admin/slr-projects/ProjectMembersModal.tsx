@@ -41,6 +41,7 @@ import {
   type UserSearchResult,
 } from "../../../types/project";
 import { resolveProjectLeader } from "../../../utils/projectUtils";
+import { getInitials } from "../../../utils/getInitials";
 
 // Reusable Sub-components from add-people directory
 import ProjectLeaderStatus from "./add-people/ProjectLeaderStatus";
@@ -65,10 +66,6 @@ interface User {
   email: string;
   status: "available" | "added" | "invited";
 }
-
-const getInitials = (name: string) => {
-  return name ? name.trim().charAt(0).toUpperCase() : "";
-};
 
 const mapSearchResultToUser = (result: UserSearchResult): User => ({
   id: result.id,

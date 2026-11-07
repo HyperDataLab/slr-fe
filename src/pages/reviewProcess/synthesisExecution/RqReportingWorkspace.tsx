@@ -113,9 +113,11 @@ function FindingEditor({
           Answer Text
         </label>
         <RichTextEditor
+          id="rq-answer"
           value={draftAnswerText}
           onChange={setDraftAnswerText}
           readOnly={isReadOnly}
+          isFullscreen={isFullscreen}
           className={isFullscreen ? "min-h-[calc(100vh-18rem)]" : ""}
         />
       </div>

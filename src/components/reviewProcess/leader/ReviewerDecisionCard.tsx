@@ -1,4 +1,5 @@
 import React from "react";
+import { getInitials } from "../../../utils/getInitials";
 
 interface ReviewerDecision {
   id: string;
@@ -34,10 +35,7 @@ const ReviewerDecisionCard: React.FC<ReviewerDecisionCardProps> = ({
                 : "bg-error/10 text-error"
             }`}
           >
-            {decision.reviewerName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")}
+            {getInitials(decision.reviewerName)}
           </div>
           <div>
             <div className="flex items-center gap-2">

@@ -63,7 +63,7 @@ export default function EvidenceMatrixView({
 
   return (
     <div className="w-full">
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
         <span className="rounded-full border border-border bg-bg-secondary px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">
           {themes.length} themes
         </span>
@@ -75,7 +75,7 @@ export default function EvidenceMatrixView({
         </span>
       </div>
 
-      <div className="overflow-x-auto overflow-y-auto max-h-[75vh] rounded-xl border border-border bg-surface-white shadow-none">
+      <div className="custom-scrollbar evidence-matrix-scrollbar max-h-[75vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-surface-white shadow-none">
         <table className="min-w-max border-separate border-spacing-0 text-sm">
           <thead>
             <tr>

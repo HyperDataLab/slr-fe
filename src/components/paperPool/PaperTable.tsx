@@ -5,6 +5,8 @@ import DeletePaperModal from "./DeletePaperModal";
 import Button from "../ui/Button";
 import Select from "../ui/Select";
 import Checkbox from "../ui/Checkbox";
+import { Table } from "../ui/Table";
+import DataTableToolbar from "../ui/DataTableToolbar";
 import PaperRow from "./PaperRow";
 import type { PaperPoolItem } from "./types";
 import type { UploadPdfOptions } from "../../pages/reviewProcess/studySelection/uploadTypes";
@@ -90,49 +92,51 @@ export default function PaperTable({
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-white">
-      {/* Table Header / Toolbar */}
-      <div className="flex flex-col gap-3 border-b border-border bg-white px-3 py-3 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <span className="shrink-0 text-sm font-semibold text-text-primary">
-            {totalCount.toLocaleString()}{" "}
-            <span className="font-normal text-text-secondary">Results</span>
-          </span>
-          {isFetching && (
-            <div role="status" aria-live="polite" className="flex items-center gap-2 rounded-full border border-accent/20 bg-primary-light px-2.5 py-1 text-[10px] font-medium text-accent">
-              <div aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent motion-safe:animate-ping motion-reduce:animate-none" />
-              Refreshing
-            </div>
-          )}
-          {onSearchTextChange && (
-            <label className="group relative min-w-0 w-full sm:w-[240px] lg:w-[280px]">
-              <span className="sr-only">Search papers by title, DOI, or authors</span>
-              <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted transition-colors group-focus-within:text-accent motion-reduce:transition-none" />
-              <input
-                type="search"
-                aria-label="Search papers by title, DOI, or authors"
-                value={searchText}
-                onChange={(event) => onSearchTextChange(event.target.value)}
-                placeholder="Search title, DOI, authors..."
-                className="h-10 w-full rounded-lg border border-border bg-surface-white pl-9 pr-3 text-sm text-text-primary outline-none transition-[border-color,box-shadow] placeholder:text-text-muted focus:border-primary focus:ring-2 focus:ring-primary/20 motion-reduce:transition-none"
-              />
-            </label>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
-          {isLeader && onImport && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="min-h-10 rounded-lg border-border px-3 text-xs hover:border-accent hover:bg-accent hover:text-text-on-primary"
-              onClick={onImport}
-            >
-              <FiUpload className="h-4 w-4" aria-hidden="true" />
-              Import Papers
-            </Button>
-          )}
-          {filterControl}
-        </div>
-      </div>
+      <DataTableToolbar
+        search={
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <span className="shrink-0 text-sm font-semibold text-text-primary">
+              {totalCount.toLocaleString()} <span className="font-normal text-text-secondary">Results</span>
+            </span>
+            {isFetching && (
+              <div role="status" aria-live="polite" className="flex items-center gap-2 rounded-full border border-accent/20 bg-primary-light px-2.5 py-1 text-[10px] font-medium text-accent">
+                <div aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent motion-safe:animate-ping motion-reduce:animate-none" />
+                Refreshing
+              </div>
+            )}
+            {onSearchTextChange && (
+              <label className="group relative min-w-0 w-full sm:w-[240px] lg:w-[280px]">
+                <span className="sr-only">Search papers by title, DOI, or authors</span>
+                <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted transition-colors group-focus-within:text-accent motion-reduce:transition-none" />
+                <input
+                  type="search"
+                  aria-label="Search papers by title, DOI, or authors"
+                  value={searchText}
+                  onChange={(event) => onSearchTextChange(event.target.value)}
+                  placeholder="Search title, DOI, authors..."
+                  className="h-10 w-full rounded-lg border border-border bg-surface-white pl-9 pr-3 text-sm text-text-primary outline-none transition-[border-color,box-shadow] placeholder:text-text-muted focus:border-primary focus:ring-2 focus:ring-primary/20 motion-reduce:transition-none"
+                />
+              </label>
+            )}
+          </div>
+        }
+        actions={
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+            {isLeader && onImport && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-10 rounded-lg border-border px-3 text-xs hover:border-accent hover:bg-accent hover:text-text-on-primary"
+                onClick={onImport}
+              >
+                <FiUpload className="h-4 w-4" aria-hidden="true" />
+                Import Papers
+              </Button>
+            )}
+            {filterControl}
+          </div>
+        }
+      />
 
       {/* Table Content */}
       <div
@@ -141,7 +145,7 @@ export default function PaperTable({
           minHeight: papers.length === 0 ? "180px" : "0",
         }}
       >
-        <table className="w-full min-w-[1072px] table-fixed border-collapse">
+        <Table containerClassName="!overflow-visible" className="w-full min-w-[1072px] table-fixed">
           <colgroup>
             {isLeader && <col className="w-10" />}
             <col className="w-24" />
@@ -262,7 +266,7 @@ export default function PaperTable({
               </tr>
             )}
           </tbody>
-        </table>
+        </Table>
       </div>
 
       {/* Pagination */}

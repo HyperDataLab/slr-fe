@@ -4,28 +4,12 @@ import { useSelector } from "react-redux";
 import Button from "../../../../../components/ui/Button";
 import type { RootState } from "../../../../../redux/store";
 import type { ExtractionCommentDto } from "../../../../../types/dataExtraction";
+import { getInitials } from "../../../../../utils/getInitials";
 
 interface IsolatedFieldCommentsProps {
   comments: ExtractionCommentDto[];
   onAddComment: (content: string) => Promise<void>;
   isLoading: boolean;
-}
-
-function getInitials(userName: string): string {
-  const parts = userName
-    .split(" ")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
-
-  if (parts.length === 0) {
-    return "U";
-  }
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
 function formatCommentTime(value: string): string {

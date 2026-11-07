@@ -141,7 +141,7 @@ export default function SubgroupAnalysisMatrix({
           id="subgroup-field-select"
           value={selectedGroupId}
           onChange={(e) => setSelectedGroupId(e.target.value)}
-          className="min-h-11 block w-full rounded-xl border border-border bg-surface-white px-4 py-2 text-sm font-medium text-text-primary shadow-none outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 motion-reduce:transition-none"
+          className="min-h-11 w-full rounded-xl border border-border bg-surface-white px-4 py-2 text-sm font-medium text-text-primary shadow-none outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 motion-reduce:transition-none"
         >
           {categoricalGroups.map((group) => (
             <option key={group.fieldId} value={group.fieldId}>
