@@ -1,4 +1,4 @@
-import api from "../config/axios";
+import api, { getValidAccessToken } from "../config/axios";
 import type { ApiResponse } from "../types/project";
 
 export const SLR_ARTIFACT_TYPES = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"] as const;
@@ -63,6 +63,46 @@ export interface SlrArtifactRun {
   reviews?: SlrArtifactReview[];
 }
 
+type GenerationStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
+interface GenerationJobStatus { jobId: string; status: GenerationStatus; runId?: string; error?: { message?: string } | null }
+interface GenerationJobResponse { job: GenerationJobStatus; eventsUrl: string }
+const isTerminalGeneration = (job: GenerationJobStatus) => job.status === "COMPLETED" || job.status === "FAILED";
+
+async function streamGenerationStatus(eventsUrl: string): Promise<GenerationJobStatus | null> {
+  const token = await getValidAccessToken();
+  const apiBasePath = new URL(api.defaults.baseURL || "/api", window.location.origin).pathname.replace(/\/$/, "");
+  const relativeUrl = eventsUrl.startsWith(apiBasePath + "/") ? eventsUrl.slice(apiBasePath.length) : eventsUrl;
+  const url = new URL(api.getUri({ url: relativeUrl }), window.location.origin);
+  const response = await fetch(url, { headers: { Accept: "text/event-stream", Authorization: "Bearer " + token }, credentials: "include", cache: "no-store" });
+  if (!response.ok || !response.body) return null;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done }).replace(/\r\n/g, "\n");
+      let boundary = buffer.indexOf("\n\n");
+      while (boundary >= 0) {
+        const frame = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        const eventName = frame.match(/^event:\s*(.+)$/m)?.[1]?.trim();
+        const data = frame.split("\n").filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart()).join("\n");
+        if (eventName === "stream-error") return null;
+        if (eventName === "status" && data) {
+          const job = JSON.parse(data) as GenerationJobStatus;
+          if (isTerminalGeneration(job)) return job;
+        }
+        boundary = buffer.indexOf("\n\n");
+      }
+      if (done) return null;
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+}
+
 /** The part of the live corpus the generate form needs to offer valid choices. */
 export interface SlrCorpusOptions {
   research_questions: Array<{ rq_id: string; code: string | null; question: string }>;
@@ -117,9 +157,18 @@ export const slrArtifactsService = {
     return unwrap((await api.get<ApiResponse<SlrArtifactRun[]>>(`${path(projectId)}/runs`)).data);
   },
   async generateRun(projectId: string, options: SlrGenerateOptions = {}): Promise<SlrArtifactRun> {
-    const body = { a3Mode: "deterministic" as const, ...pruneOptions(options) };
-    // The server answers `{ run, artifacts }`; callers only need the run record.
-    return unwrap((await api.post<ApiResponse<{ run: SlrArtifactRun }>>(`${path(projectId)}/runs`, body)).data).run;
+    const body = { a3Mode: "ai" as const, ...pruneOptions(options) };
+    const queued = unwrap((await api.post<ApiResponse<GenerationJobResponse>>(path(projectId) + "/runs", body)).data);
+    let job: GenerationJobStatus | null = null;
+    try { job = await streamGenerationStatus(queued.eventsUrl); } catch { /* Recover from a dropped stream through durable status polling. */ }
+    while (!job || !isTerminalGeneration(job)) {
+      const status = unwrap((await api.get<ApiResponse<GenerationJobStatus>>(path(projectId) + "/runs/jobs/" + encodeURIComponent(queued.job.jobId))).data);
+      if (isTerminalGeneration(status)) { job = status; break; }
+      await new Promise((resolve) => window.setTimeout(resolve, 3000));
+    }
+    if (job.status === "FAILED") throw new Error(job.error?.message || "Artifact generation failed. Please try again.");
+    if (!job.runId) throw new Error("Artifact generation completed without a run record.");
+    return unwrap((await api.get<ApiResponse<SlrArtifactRun>>(path(projectId) + "/runs/" + encodeURIComponent(job.runId))).data);
   },
   async getArtifact(projectId: string, runId: string, artifactType: SlrStoredPayloadKey): Promise<unknown> {
     return unwrap((await api.get<ApiResponse<unknown>>(`${path(projectId)}/runs/${encodeURIComponent(runId)}/artifacts/${artifactType}`)).data);

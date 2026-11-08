@@ -121,7 +121,7 @@ describe("SlrArtifactsWorkspace", () => {
     fireEvent.change(within(form).getByLabelText(/Gap map columns/), { target: { value: "field:f1" } });
     fireEvent.click(within(form).getByRole("button", { name: /Generate A1–A10/ }));
     await waitFor(() => expect(slrArtifactsService.generateRun).toHaveBeenCalledWith("p1", {
-      a3Mode: "deterministic",
+      a3Mode: "ai",
       contextGroupBy: "outcome",
       sparseThreshold: 1,
       researchQuestionId: "rq1",
