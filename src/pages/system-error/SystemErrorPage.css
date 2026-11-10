@@ -1,0 +1,126 @@
+.system-error-page {
+  animation: system-error-enter 220ms ease-out both;
+}
+
+.system-error-visual {
+  display: block;
+  width: min(100%, 360px);
+  height: auto;
+  margin: 22px auto 16px;
+  overflow: visible;
+}
+
+.system-error-pulse {
+  fill: none;
+  stroke: var(--color-primary-light);
+  stroke-width: 1.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: system-error-pulse 3.2s ease-out infinite;
+}
+
+.system-error-connection {
+  stroke: var(--color-border);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.system-error-connection-dashed {
+  stroke: var(--color-primary);
+  stroke-dasharray: 3 6;
+  animation: system-error-signal 9s linear infinite;
+}
+
+.system-error-node {
+  stroke-width: 1.5;
+}
+
+.system-error-node-blue {
+  fill: var(--color-primary-light);
+  stroke: var(--color-primary);
+}
+
+.system-error-node-muted {
+  fill: var(--color-surface-white);
+  stroke: var(--color-border);
+}
+
+.system-error-break {
+  stroke: var(--color-warning);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.system-error-server {
+  fill: var(--color-surface-white);
+  stroke: var(--color-border);
+  stroke-width: 1.5;
+}
+
+.system-error-server-slot {
+  fill: var(--color-primary-light);
+  stroke: var(--color-primary);
+  stroke-width: 1;
+}
+
+.system-error-server-light {
+  fill: var(--color-primary);
+}
+
+@keyframes system-error-enter {
+  from {
+    opacity: 0.96;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes system-error-pulse {
+  0% {
+    opacity: 0.75;
+    transform: scale(0.9);
+  }
+  75%,
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes system-error-signal {
+  to {
+    stroke-dashoffset: -54;
+  }
+}
+
+@media (max-width: 639px) {
+  .system-error-visual {
+    width: min(100%, 300px);
+    margin-top: 18px;
+    margin-bottom: 14px;
+  }
+}
+
+@media (max-height: 640px) {
+  .system-error-page {
+    align-items: flex-start;
+  }
+
+  .system-error-visual {
+    width: min(100%, 300px);
+    margin-top: 14px;
+    margin-bottom: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .system-error-page,
+  .system-error-pulse,
+  .system-error-connection-dashed {
+    animation: none;
+  }
+}
