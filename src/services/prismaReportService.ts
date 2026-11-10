@@ -75,6 +75,15 @@ class PrismaReportService {
     return response.data;
   }
 
+  /** Download a complete project archive in the native .slr package format. */
+  async downloadProjectPackage(projectId: string): Promise<Blob> {
+    const response = await api.get(`/projects/${projectId}/export/slr`, {
+      responseType: "blob",
+      timeout: 0,
+    });
+    return response.data;
+  }
+
   async classifySearchSource(
     projectId: string,
     sourceId: string,

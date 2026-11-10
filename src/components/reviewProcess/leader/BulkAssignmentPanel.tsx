@@ -17,6 +17,7 @@ import { useAssignPapers } from "../../../hooks/useProjectPapers";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { ProjectRole, type ProjectMember } from "../../../types/project";
 import { toastSuccess, toastError } from "../../../utils/toast";
+import { getInitials } from "../../../utils/getInitials";
 
 interface BulkAssignmentPanelProps {
   selectedPaperIds: string[];
@@ -268,7 +269,7 @@ const BulkAssignmentPanel: React.FC<BulkAssignmentPanelProps> = ({
                           />
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-primary-light flex items-center justify-center text-[10px] font-bold text-accent group-hover:bg-primary transition-colors">
-                              {member.fullName.charAt(0)}
+                              {getInitials(member.fullName)}
                             </div>
                             <span className="text-xs font-medium text-text-primary group-hover:text-accent transition-colors">
                               {member.fullName}

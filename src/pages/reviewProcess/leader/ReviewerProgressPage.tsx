@@ -26,6 +26,7 @@ import { useUserProgressOverview } from "../../../hooks/useUsers";
 import Pagination from "../../../components/ui/Pagination";
 import type { UserProgress } from "../../../types/user";
 import LoadingSpinner from "../../../components/ui/LoadingSpinner";
+import { getInitials } from "../../../utils/getInitials";
 
 // --- Sub-components ---
 
@@ -224,7 +225,7 @@ const ReviewerProgressPage: React.FC = () => {
               <article key={reviewer.userId} className="min-w-0 rounded-xl border border-border p-4">
                 <div className="flex min-w-0 items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-bold text-white">
-                    {reviewer.fullName.charAt(0)}
+                    {getInitials(reviewer.fullName)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="break-words text-sm font-semibold text-text-primary">{reviewer.fullName}</h3>
@@ -357,7 +358,7 @@ const ReviewerProgressPage: React.FC = () => {
                   <TableCell className="px-8">
                     <div className="flex items-center gap-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-sm font-black text-white transition-transform group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none">
-                        {reviewer.fullName.charAt(0)}
+                        {getInitials(reviewer.fullName)}
                       </div>
                       <div>
                         <div className="font-bold text-text-primary">

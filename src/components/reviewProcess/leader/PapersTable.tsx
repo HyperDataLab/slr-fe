@@ -17,6 +17,7 @@ import { Check, X } from "lucide-react";
 import { useReviewerSubmission } from "../../../hooks/useStudySelectionChecklistSubmission";
 import { PreviewDocument } from "../../ui/document-editor/PreviewDocument";
 import LoadingSpinner from "../../../components/ui/LoadingSpinner";
+import { getInitials } from "../../../utils/getInitials";
 
 interface PaperRowProps {
   paper: PaperResponse;
@@ -214,7 +215,7 @@ export const PaperRow: React.FC<PaperRowProps> = ({
                       key={i}
                       className="flex h-4 w-4 items-center justify-center rounded-full border border-white bg-bg-secondary text-[8px] font-bold text-text-secondary transition-colors group-hover:bg-primary-hover group-hover:text-white motion-reduce:transition-none"
                     >
-                      {reviewer.name?.charAt(0) || "?"}
+                      {getInitials(reviewer.name)}
                     </div>
                   ))}
                 </div>
@@ -248,7 +249,7 @@ export const PaperRow: React.FC<PaperRowProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center text-accent font-bold text-xs">
-                        {rd.reviewerName?.charAt(0) || "?"}
+                        {getInitials(rd.reviewerName)}
                       </div>
                       <span className="text-sm font-semibold text-text-primary">
                         {rd.reviewerName}

@@ -14,9 +14,10 @@ import type {
 import type { HighlightArea } from "@react-pdf-viewer/highlight";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../../redux/store";
-import { ArrowLeft, BookOpenText, ChevronLeft, ChevronRight, ListFilter, PanelsTopLeft } from "lucide-react";
+import { BookOpenText, ChevronLeft, ChevronRight, ListFilter, PanelsTopLeft } from "lucide-react";
 import Drawer from "../../../../components/ui/Drawer";
 import Button from "../../../../components/ui/Button";
+import { getInitials } from "../../../../utils/getInitials";
 
 export interface HighlightData {
   areas: HighlightArea[];
@@ -49,7 +50,6 @@ interface QAPapersTabContentProps {
     decisionData?: { notes: string | null; items: ReviewerDecisionPayload[] },
   ) => void;
   onLeaderSaveDraft?: (notes: string | null, decisions: ReviewerDecisionPayload[]) => void;
-  onBack?: () => void;
   highlightsByCriterion?: Record<string, HighlightData[]>;
   isSaving?: boolean;
   canEdit?: boolean;
@@ -71,7 +71,6 @@ export function QAPapersTabContent({
   onReviewerSave,
   onLeaderResolve,
   onLeaderSaveDraft,
-  onBack,
   isSaving,
   canEdit,
 }: QAPapersTabContentProps) {
@@ -148,9 +147,7 @@ export function QAPapersTabContent({
           const initials = isCurrentUser
             ? "YOU"
             : reviewer
-              ? (reviewer.fullname || reviewer.username)
-                  .substring(0, 2)
-                  .toUpperCase()
+              ? getInitials(reviewer.fullname || reviewer.username)
               : "NA";
 
           let bgColor = "rgba(245, 158, 11, 0.4)";
@@ -240,10 +237,6 @@ export function QAPapersTabContent({
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-bg-primary">
       <div className="sticky top-0 z-20 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-surface-white px-4 py-3 sm:px-6">
-        <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-text-secondary transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 sm:min-h-9">
-          <ArrowLeft size={17} aria-hidden="true" /> Back to assessment
-        </button>
-        <div className="hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-text-primary">{currentPaperIndex >= 0 ? `Paper ${(currentPage - 1) * 10 + currentPaperIndex + 1} of ${totalItems}` : `${totalItems} papers`} <span className="font-normal text-text-secondary">· {isLeader ? "Conflict resolution" : "Quality assessment"}</span></p>
         </div>

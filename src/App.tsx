@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Routes, Route, useNavigate } from "react-router";
+import { Routes, Route, useLocation, useNavigate } from "react-router";
 import { useSelector, useDispatch } from "react-redux";
 import { MotionConfig } from "framer-motion";
 import store, { type RootState } from "./redux/store";
@@ -16,13 +16,31 @@ import MainRoutes from "./routes/MainRoutes";
 import NotFoundPage from "./pages/not-found/NotFoundPage";
 import { authService } from "./services/authService";
 import ErrorBoundary from "./components/common/ErrorBoundary";
+import SystemErrorPage from "./pages/system-error/SystemErrorPage";
+import { SYSTEM_ERROR_EVENT } from "./utils/systemError";
 
 function App() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, accessTokenExpiresAt, isInitialized } = useSelector(
     (state: RootState) => state.auth,
   );
+
+  useEffect(() => {
+    const handleSystemError = () => {
+      if (location.pathname !== "/system-error") {
+        const returnTo = `${location.pathname}${location.search}${location.hash}`;
+        navigate("/system-error", {
+          replace: true,
+          state: { from: returnTo },
+        });
+      }
+    };
+
+    window.addEventListener(SYSTEM_ERROR_EVENT, handleSystemError);
+    return () => window.removeEventListener(SYSTEM_ERROR_EVENT, handleSystemError);
+  }, [location.hash, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     // 3. Handle Expiration on App Initialization
@@ -72,6 +90,7 @@ function App() {
     <MotionConfig reducedMotion="user">
       <ErrorBoundary>
         <Routes>
+          <Route path="system-error" element={<SystemErrorPage />} />
           <Route path="auth/*" element={<AuthRoutes />} />
           <Route path="admin/*" element={<AdminRoutes />} />
           <Route path="404" element={<NotFoundPage />} />

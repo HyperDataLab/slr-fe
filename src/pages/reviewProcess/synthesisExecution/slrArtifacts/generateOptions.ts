@@ -23,7 +23,7 @@ export interface GenerateFormState {
 }
 
 export const DEFAULT_FORM_STATE: GenerateFormState = {
-  a3Mode: "deterministic",
+  a3Mode: "ai",
   researchQuestionId: "",
   contextGroupBy: "outcome",
   sparseThreshold: "1",

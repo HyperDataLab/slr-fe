@@ -3,6 +3,7 @@ import { Users2 } from "lucide-react";
 import Button from "../../../../components/ui/Button";
 import Modal from "../../../../components/ui/Modal";
 import Select from "../../../../components/ui/Select";
+import { getInitials } from "../../../../utils/getInitials";
 
 interface DashboardTask {
   paperId: string;
@@ -27,18 +28,6 @@ interface AssignReviewersModalProps {
   task: DashboardTask | null;
   reviewerOptions: ReviewerOption[];
   onAssign: (payload: AssignPayload) => void;
-}
-
-function getInitials(name: string): string {
-  if (!name) return "?";
-
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-
-  return parts[0].substring(0, 2).toUpperCase();
 }
 
 export default function AssignReviewersModal({

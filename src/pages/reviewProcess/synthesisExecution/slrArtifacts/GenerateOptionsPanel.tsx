@@ -78,7 +78,7 @@ export default function GenerateOptionsPanel({ projectId, isSubmitting, submitEr
     {corpusQuery.isLoading && <p className="text-sm text-text-muted" role="status">Reading the project corpus…</p>}
     {corpusQuery.error != null && <p role="alert" className="text-sm text-warning">Project fields could not be loaded ({getErrorMessage(corpusQuery.error, "corpus unavailable")}). You can still generate with the defaults.</p>}
     <div className="grid gap-3 md:grid-cols-2">
-      <Field label="A3 argument graph" hint="AI mode needs a configured AI provider.">
+      <Field label="A3 argument graph" hint="AI mode sends a request through OpenRouter for A3. The other artifacts are built from the corpus in the backend.">
         <select className={controlClass} value={state.a3Mode} onChange={(event) => set("a3Mode", event.target.value === "ai" ? "ai" : "deterministic")}>
           <option value="deterministic">Deterministic (from extracted evidence)</option>
           <option value="ai">AI-assisted</option>

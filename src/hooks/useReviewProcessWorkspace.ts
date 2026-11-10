@@ -34,6 +34,7 @@ import type {
 import { WORKFLOW_PHASES } from "../components/reviewProcess/workflow/constants";
 import { toastWarning, toastSuccess } from "../utils/toast";
 import { getErrorCode } from "../utils/errorUtils";
+import { getInitials } from "../utils/getInitials";
 
 
 interface UseReviewProcessWorkspaceParams {
@@ -927,14 +928,6 @@ export const useReviewProcessWorkspace = ({
     if (!projectMembers) return [];
 
     return projectMembers.map((m) => {
-      const initials = m.fullName
-        .split(" ")
-        .filter(Boolean)
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .substring(0, 2);
-
       const colors = ["blue", "purple", "green", "orange", "red", "indigo", "pink"];
       // Use userId to pick a stable color
       const colorIndex = m.userId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -944,7 +937,7 @@ export const useReviewProcessWorkspace = ({
         id: m.userId,
         name: m.fullName,
         role: m.role === 1 ? "Lead Reviewer" : "Reviewer",
-        initials: initials || m.userName.substring(0, 2).toUpperCase(),
+        initials: getInitials(m.fullName || m.userName),
         avatarColor,
       } as TeamMember;
     });

@@ -20,6 +20,7 @@ import { cn } from "../../../utils/cn";
 import { useReviewerAssignmentTable } from "../../../hooks/useStudySelection";
 import type { ReviewerProgress } from "./types";
 import LoadingSpinner from "../../../components/ui/LoadingSpinner";
+import { getInitials } from "../../../utils/getInitials";
 
 interface ReviewerAssignmentModalProps {
   isOpen: boolean;
@@ -143,7 +144,7 @@ const ReviewerAssignmentModal: React.FC<ReviewerAssignmentModalProps> = ({
       title={
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-xl font-bold text-white">
-            {reviewer.reviewerName.charAt(0)}
+            {getInitials(reviewer.reviewerName)}
           </div>
           <div>
             <h2 className="text-xl font-black text-text-primary tracking-tight leading-none mb-1">

@@ -205,7 +205,7 @@ const PrismaFlowDiagram = forwardRef<PrismaFlowDiagramRef, PrismaFlowDiagramProp
     const renderDiagram = (modal = false) => (
       <div
         ref={modal ? modalDiagramRef : mainDiagramRef}
-        className={`prisma-flow-diagram mx-auto w-full rounded-xl ${modal ? "max-w-5xl bg-surface-white px-4 py-6 sm:px-8" : "max-w-5xl bg-bg-primary/45 px-3 py-4 sm:px-5 sm:py-5"}`}
+        className={`prisma-flow-diagram mx-auto w-full rounded-xl ${modal ? "max-w-5xl bg-surface-white px-4 py-6 sm:px-8" : "max-w-5xl bg-surface-white px-3 py-4 sm:px-5 sm:py-5"}`}
         role="figure"
         aria-label="PRISMA 2020 flow diagram"
       >
@@ -300,7 +300,7 @@ const PrismaFlowDiagram = forwardRef<PrismaFlowDiagramRef, PrismaFlowDiagramProp
           title="PRISMA 2020 Flow Diagram"
           size="xl"
           className="h-[calc(100dvh-2rem)]"
-          bodyClassName="min-h-0 flex-1 overflow-auto bg-bg-primary/50 p-3 sm:p-5"
+          bodyClassName="min-h-0 flex-1 overflow-auto bg-surface-white p-3 sm:p-5"
           footer={
             <Button onClick={handleExportImage} size="sm" className="min-h-11 gap-2">
               <FiDownload className="h-4 w-4" />

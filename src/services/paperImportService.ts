@@ -151,6 +151,7 @@ export const paperImportService = {
     if (request.searchSourceId) formData.append("searchSourceId", request.searchSourceId);
 
     const response = await api.post<RisImportResponse>("/papers/import/pdf", formData, {
+      params: { projectId: request.projectId },
       onUploadProgress: (event) => {
         if (onProgress && event.total) onProgress(Math.round((event.loaded * 100) / event.total));
       },
@@ -326,6 +327,7 @@ export const paperImportService = {
 
     // Upload with progress tracking
     const response = await api.post<RisImportResponse>("/papers/import/ris", formData, {
+      params: { projectId: request.projectId },
       headers: {
         "Content-Type": "multipart/form-data",
       },
@@ -377,6 +379,7 @@ export const paperImportService = {
 
     // Upload with progress tracking
     const response = await api.post<RisImportResponse>("/papers/import/bibtex", formData, {
+      params: { projectId: request.projectId },
       headers: {
         "Content-Type": "multipart/form-data",
       },

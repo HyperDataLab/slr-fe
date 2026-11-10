@@ -4,6 +4,7 @@ import { useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
 import type { RootState } from "../../redux/store";
 import AdminNotification from "./AdminNotification";
+import { getInitials } from "../../utils/getInitials";
 
 interface AdminHeaderProps {
   onMenuClick?: () => void;
@@ -46,10 +47,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({ onMenuClick }) => {
     return titles[location.pathname] || pageTitle;
   }, [location.pathname, pageTitle]);
 
-  const getUserInitials = (name: string) => {
-    return name ? name.trim().charAt(0).toUpperCase() : "";
-  };
-
   return (
     <header className="sticky top-0 z-20 flex h-[64px] shrink-0 items-center justify-between border-b border-border bg-white/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-3.5">
@@ -84,7 +81,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({ onMenuClick }) => {
             </p>
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
-            {user?.name ? getUserInitials(user.name) : "A"}
+            {user?.name ? getInitials(user.name) : "A"}
           </div>
         </div>
       </div>

@@ -16,6 +16,7 @@ import { useProjectMembers } from "../../../hooks/useProjects";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { ProjectRole, type ProjectMember } from "../../../types/project";
 import { toastSuccess, toastError } from "../../../utils/toast";
+import { getInitials } from "../../../utils/getInitials";
 import type { UseDataExtractionWorkspaceReturn } from "../../../pages/reviewProcess/dataExtraction/types";
 
 interface BulkAssignmentPanelDataExtractionProps {
@@ -263,7 +264,7 @@ const BulkAssignmentPanelDataExtraction: React.FC<
                           />
                           <div className="flex items-center gap-2">
                             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-light text-[10px] font-bold text-accent transition-colors group-hover:bg-primary group-hover:text-white">
-                              {member.fullName.charAt(0)}
+                              {getInitials(member.fullName)}
                             </div>
                             <span className="text-xs font-medium text-text-primary transition-colors group-hover:text-accent">
                               {member.fullName}

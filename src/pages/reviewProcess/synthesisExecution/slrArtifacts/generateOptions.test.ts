@@ -11,7 +11,7 @@ import {
 describe("buildGenerateOptions", () => {
   it("sends only the defaults when nothing was changed", () => {
     expect(buildGenerateOptions(DEFAULT_FORM_STATE)).toEqual({
-      options: { a3Mode: "deterministic", contextGroupBy: "outcome", sparseThreshold: 1 },
+      options: { a3Mode: "ai", contextGroupBy: "outcome", sparseThreshold: 1 },
     });
   });
 

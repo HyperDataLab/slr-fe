@@ -18,11 +18,32 @@ import { ProjectRole } from "../../../types/project";
 import type { ReviewerDecisionPayload } from "./components/ReviewerQAPanel";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../redux/store";
-import { CheckCircle2, CircleDashed, Clock3, Files } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CircleDashed, Clock3, Files } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 
 export type WorkspaceQAPaper = QAPaperResponse | LeaderQAPaperResponse;
+
+function WorkspaceBackButton({
+  onClick,
+  label = "Back to project",
+  alignWithContent = false,
+}: {
+  onClick: () => void;
+  label?: string;
+  alignWithContent?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex min-h-10 w-fit items-center gap-2 rounded-lg text-sm font-medium text-text-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none ${alignWithContent ? "px-0 hover:text-primary" : "px-2 hover:bg-surface-white hover:text-text-primary"}`}
+    >
+      <ArrowLeft size={18} aria-hidden="true" />
+      {label}
+    </button>
+  );
+}
 
 const defaultQAStats = {
   total: 0,
@@ -374,7 +395,6 @@ export default function QualityAssessmentWorkspace() {
   return (
     <div className="flex h-screen flex-col bg-bg-primary relative">
       <QAHeader
-        onBack={viewMode === "edit" ? closeEditSpace : handleBack}
         stats={stats}
         phaseStatus={isError ? "Unavailable" : phaseStatus ?? "NotStarted"}
         unavailable={isError}
@@ -396,38 +416,37 @@ export default function QualityAssessmentWorkspace() {
       />
 
       {viewMode === "list" && isError ? (
-        <main className="mx-auto flex w-full max-w-3xl flex-1 items-center justify-center px-5 py-12 sm:px-6">
-          <div role="alert" className="w-full rounded-xl border border-error/25 bg-surface-white p-6 text-center">
-            <h2 className="text-lg font-semibold text-text-primary">Assessment data unavailable</h2>
-            <p className="mt-2 text-sm text-text-secondary">{error || "The assessment workspace could not be loaded."}</p>
-            <Button type="button" variant="secondary" className="mt-5" onClick={() => void refetch()}>Try again</Button>
+        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-auto px-5 py-4 sm:px-6">
+          <WorkspaceBackButton onClick={handleBack} />
+          <div className="flex flex-1 items-center justify-center py-12">
+            <div role="alert" className="w-full rounded-xl border border-error/25 bg-surface-white p-6 text-center">
+              <h2 className="text-lg font-semibold text-text-primary">Assessment data unavailable</h2>
+              <p className="mt-2 text-sm text-text-secondary">{error || "The assessment workspace could not be loaded."}</p>
+              <Button type="button" variant="secondary" className="mt-5" onClick={() => void refetch()}>Try again</Button>
+            </div>
           </div>
         </main>
       ) : viewMode === "list" ? (
-        <main className="mx-auto flex w-full max-w-[1680px] flex-1 flex-col gap-5 overflow-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
-          <section className="relative isolate overflow-hidden rounded-2xl border border-accent/15 bg-primary-light/70 px-5 py-5 sm:px-6 sm:py-6">
-            <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full border border-accent/10" />
-            <div aria-hidden="true" className="pointer-events-none absolute -right-4 -top-16 h-48 w-48 rounded-full border border-accent/10" />
-            <div className="relative flex items-center gap-4">
-              <span className="h-12 w-1 shrink-0 rounded-full bg-primary" />
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
-                  {isLeader ? "Quality review · Leader workspace" : "Quality review · Reviewer workspace"}
-                </p>
-                <h2 className="mt-1 text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
-                  Assessment workspace
-                </h2>
-                <p className="mt-1.5 max-w-2xl text-sm leading-6 text-text-secondary">
-                  {isLeader
-                    ? "Assign studies, follow reviewer progress, and resolve each assessment."
-                    : "Work through your assigned studies and submit each assessment."}
-                </p>
-              </div>
+        <main className="mx-auto flex w-full max-w-[1680px] flex-1 flex-col gap-4 overflow-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+          <WorkspaceBackButton onClick={handleBack} />
+          <section className="rounded-xl border border-border bg-surface-white px-4 py-4 sm:px-5">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent">
+                {isLeader ? "Quality review · Leader workspace" : "Quality review · Reviewer workspace"}
+              </p>
+              <h2 className="mt-1 text-lg font-semibold tracking-tight text-text-primary sm:text-xl">
+                Assessment workspace
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm leading-5 text-text-secondary">
+                {isLeader
+                  ? "Assign studies, follow reviewer progress, and resolve each assessment."
+                  : "Work through your assigned studies and submit each assessment."}
+              </p>
             </div>
           </section>
 
-          <section aria-label="Assessment progress" className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border lg:grid-cols-4">
-            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+          <section aria-label="Assessment progress" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-white px-4 py-4 sm:px-5">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">Total studies</p>
                 <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{stats.total}</p>
@@ -435,7 +454,7 @@ export default function QualityAssessmentWorkspace() {
               </div>
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bg-primary text-text-secondary"><Files size={18} /></span>
             </div>
-            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-white px-4 py-4 sm:px-5">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">Completed</p>
                 <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{stats.completed}</p>
@@ -443,7 +462,7 @@ export default function QualityAssessmentWorkspace() {
               </div>
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success/10 text-success"><CheckCircle2 size={18} /></span>
             </div>
-            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-white px-4 py-4 sm:px-5">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">In progress</p>
                 <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{stats.inProgress}</p>
@@ -451,7 +470,7 @@ export default function QualityAssessmentWorkspace() {
               </div>
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-light text-accent"><Clock3 size={18} /></span>
             </div>
-            <div className="flex items-center justify-between gap-3 bg-surface-white px-4 py-4 sm:px-5 sm:py-5">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-white px-4 py-4 sm:px-5">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">{isLeader ? "Not started" : "Pending"}</p>
                 <p className="mt-2 text-3xl font-semibold leading-none tracking-tight text-text-primary">{isLeader ? stats.notStarted : stats.pending}</p>
@@ -490,6 +509,9 @@ export default function QualityAssessmentWorkspace() {
         </main>
       ) : (
         <main className="flex-1 min-h-0 flex flex-col pt-0 w-full overflow-hidden bg-surface-white">
+          <div className="shrink-0 px-4 py-2 sm:px-6">
+            <WorkspaceBackButton onClick={closeEditSpace} label="Back to assessment" alignWithContent />
+          </div>
           <QAPapersTabContent
             papers={activePapers}
             strategies={strategies}

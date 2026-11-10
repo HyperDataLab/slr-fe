@@ -3,6 +3,7 @@ import { FiArrowUpRight } from "react-icons/fi";
 import { useProjectMembers } from "../../../hooks/useProjects";
 import type { Project } from "../../../types/project";
 import type { ReviewProcess } from "../../../types/reviewProcess";
+import { getInitials } from "../../../utils/getInitials";
 import BusinessJustificationSection from "./BusinessJustificationSection";
 import ProjectSetupSection from "./ProjectSetupSection";
 import SLRWorkflowOverview from "./SLRWorkflowOverview";
@@ -214,7 +215,7 @@ const OverviewTabContent: React.FC<OverviewTabContentProps> = (props) => {
                     title={member.fullName}
                     className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-primary-light text-xs font-medium text-accent"
                   >
-                    {member.fullName?.trim().charAt(0).toUpperCase() || "?"}
+                    {getInitials(member.fullName)}
                   </span>
                 ))}
                 {(membersPage?.totalCount ?? 0) > 3 && (

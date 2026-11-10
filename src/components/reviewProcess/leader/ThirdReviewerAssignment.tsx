@@ -8,6 +8,7 @@ import { ProjectRole } from "../../../types/project";
 import { toastSuccess, toastError } from "../../../utils/toast";
 import { useAssignPapers } from "../../../hooks/useProjectPapers";
 import LoadingSpinner from "../../../components/ui/LoadingSpinner";
+import { getInitials } from "../../../utils/getInitials";
 
 interface ThirdReviewerAssignmentProps {
   paperId: string;
@@ -154,7 +155,7 @@ const ThirdReviewerAssignment: React.FC<ThirdReviewerAssignmentProps> = ({
                           key={r.id}
                           className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface-white bg-primary text-[11px] font-bold text-white"
                         >
-                          {r.name.charAt(0)}
+                          {getInitials(r.name)}
                         </div>
                       ))}
                       {selectedReviewers.length > 3 && (
@@ -231,7 +232,7 @@ const ThirdReviewerAssignment: React.FC<ThirdReviewerAssignmentProps> = ({
                               : "bg-bg-secondary text-text-secondary group-hover:bg-primary-hover group-hover:text-white"
                           }`}
                         >
-                          {member.fullName.charAt(0)}
+                          {getInitials(member.fullName)}
                         </div>
                         <div className="flex-1">
                           <div

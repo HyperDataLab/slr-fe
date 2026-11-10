@@ -7,6 +7,10 @@ import { authService } from "../services/authService";
 
 import { toastWarning } from "../utils/toast";
 import { API_BASE_URL } from "./apiUrls";
+import {
+  isSystemAvailabilityError,
+  notifySystemError,
+} from "../utils/systemError";
 
 const TIMEOUT = 30000;
 
@@ -57,6 +61,10 @@ const refreshToken = async (): Promise<string | null> => {
       return accessToken;
     } catch (error) {
       console.error("[Axios] Token refresh failed:", error);
+      if (isSystemAvailabilityError(error)) {
+        notifySystemError();
+        throw error;
+      }
       return null;
     } finally {
       refreshPromise = null;
@@ -126,6 +134,8 @@ api.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    if (isSystemAvailabilityError(error)) notifySystemError();
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       const { isAuthenticated } = store.getState().auth;
