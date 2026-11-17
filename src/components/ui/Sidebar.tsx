@@ -102,7 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({ items, footerItems, isCollapsed, onTo
           <img
             src={isCollapsed ? "/brand/logo-mark.png" : "/brand/logo-horizontal.png"}
             alt="SLRS"
-            className="block h-8 max-w-full w-auto select-none object-contain object-left"
+            className="block h-10 max-w-full w-auto select-none object-contain object-left"
             draggable={false}
           />
         </Link>
