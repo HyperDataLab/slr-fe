@@ -107,9 +107,6 @@ export default function FullTextScreeningWorkspace() {
 
   if (!paperId) {
     return <StudySelectionPaperList
-      title="Full-Text Screening"
-      subtitle="Review included studies against the full text and record screening decisions."
-      processName={processId || "Screening Process"}
       projectName={project?.title}
       activeStage="full-text"
       papers={ws.papers}

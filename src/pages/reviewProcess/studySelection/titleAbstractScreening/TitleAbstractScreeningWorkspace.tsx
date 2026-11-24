@@ -116,9 +116,6 @@ export default function TitleAbstractScreeningWorkspace() {
   return (
     !paperId ? (
       <StudySelectionPaperList
-        title="Title & Abstract Screening"
-        subtitle="Review titles and abstracts, manage decisions, and track screening progress."
-        processName={processId || "Screening Process"}
         projectName={project?.title}
         activeStage="title-abstract"
         papers={ws.papers}

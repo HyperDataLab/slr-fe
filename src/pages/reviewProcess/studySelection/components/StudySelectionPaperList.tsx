@@ -33,9 +33,6 @@ export interface StudySelectionListPaper {
 }
 
 interface Props {
-  title: string;
-  subtitle: string;
-  processName: string;
   projectName?: string;
   activeStage: "title-abstract" | "full-text";
   papers: StudySelectionListPaper[];
@@ -79,7 +76,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function StudySelectionPaperList(props: Props) {
   const {
-    title, subtitle, processName, projectName, activeStage, papers, stats, pagination, filters,
+    projectName, activeStage, papers, stats, pagination, filters,
     isLoading, papersError, statsError, onRetry, contextKey, onBack, onOpenPaper, onStageChange, onSearchChange, onStatusChange,
     onSortChange, onFullTextChange, onConflictChange, onDecidedByMeChange, onPageChange, onPageSizeChange,
   } = props;
@@ -111,63 +108,32 @@ export default function StudySelectionPaperList(props: Props) {
 
   return (
     <main className="h-full min-h-0 overflow-y-auto bg-bg-primary text-text-primary">
-      <header className="sticky top-0 z-20 border-b border-border bg-surface-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 pb-3 pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6 sm:pb-4 sm:pt-6 lg:px-10">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <button type="button" onClick={onBack} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border text-text-secondary motion-safe:transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none" aria-label="Back to project workspace">
-              <FiArrowLeft />
-            </button>
-            <div className="min-w-0">
-              <div title={`Study selection · ${projectName || processName}`} className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">Study selection · {projectName || processName}</div>
-              <h1 className="line-clamp-2 text-xl font-semibold">{title}</h1>
+      <header className="sticky top-0 z-20 bg-surface-white">
+        <div className="mx-auto max-w-[1600px] px-6 pt-3 lg:px-10">
+          <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+            <div className="flex w-full min-w-0 items-center gap-3 sm:flex-1">
+              <button type="button" onClick={onBack} aria-label="Back to project workspace" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-text-secondary transition-colors hover:bg-bg-primary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"><FiArrowLeft aria-hidden="true" /></button>
+              <div className="min-w-0 flex-1">
+                <nav className="mb-1 flex min-w-0 items-center gap-1 text-[13px] leading-5" aria-label="Breadcrumb">
+                  <button type="button" onClick={onBack} className="shrink-0 text-primary hover:text-primary-hover focus-visible:outline-none focus-visible:underline">Project workspace</button>
+                  {projectName?.trim() && <><FiChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-text-secondary" /><span title={projectName} className="max-w-[min(65vw,48rem)] truncate text-text-secondary">{projectName}</span></>}
+                </nav>
+                <h1 className="text-2xl font-semibold leading-8 tracking-tight text-text-primary">Study Selection</h1>
+              </div>
+            </div>
+            <div className="flex w-full flex-wrap items-center justify-end gap-x-4 gap-y-2 pb-0.5 sm:w-auto">
+              <button aria-pressed={filters.status === "included"} onClick={() => onStatusChange(filters.status === "included" ? "all" : "included")} className={cn("min-h-9 whitespace-nowrap rounded-md px-1 text-[13px] font-medium text-primary transition-colors hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2", filters.status === "included" && "text-success hover:text-success")}>{activeStage === "title-abstract" ? "Review passed papers" : "Review included"}</button>
+              {props.headerActionLabel && props.onHeaderAction && <button onClick={props.onHeaderAction} className="min-h-9 whitespace-nowrap rounded-md bg-primary px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2">{props.headerActionLabel}</button>}
             </div>
           </div>
-          <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-5">
-            <div className="hidden items-center gap-3 sm:flex">
-              {statsError ? (
-                <span className="text-xs text-text-secondary">Progress unavailable</span>
-              ) : (
-                <>
-                  <span className="text-xs text-text-secondary">Overall progress</span>
-                  <div className="h-2 w-32 overflow-hidden rounded-full bg-bg-secondary">
-                    <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, Math.max(0, stats.completionPercentage))}%` }} />
-                  </div>
-                  <span className="text-xs font-semibold tabular-nums">{Math.round(stats.completionPercentage)}%</span>
-                </>
-              )}
-            </div>
-            {props.headerActionLabel && props.onHeaderAction && <button onClick={props.onHeaderAction} className="min-h-11 whitespace-nowrap rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white motion-safe:transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 motion-reduce:transition-none">{props.headerActionLabel}</button>}
-          </div>
+          <nav className="mt-3 flex items-center gap-6 border-b border-border" aria-label="Screening phase">
+            <button type="button" onClick={() => onStageChange("title-abstract")} aria-current={activeStage === "title-abstract" ? "step" : undefined} className={cn("min-h-10 border-b-2 px-0.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30", activeStage === "title-abstract" ? "border-primary text-primary-hover" : "border-transparent text-text-secondary hover:text-text-primary")}>Title &amp; Abstract</button>
+            <button type="button" onClick={() => onStageChange("full-text")} aria-current={activeStage === "full-text" ? "step" : undefined} className={cn("min-h-10 border-b-2 px-0.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30", activeStage === "full-text" ? "border-primary text-primary-hover" : "border-transparent text-text-secondary hover:text-text-primary")}>Full Text</button>
+          </nav>
         </div>
-        <nav className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 pb-3 pt-2 lg:px-10" aria-label="Screening stage">
-          <div className="flex min-w-0 items-center">
-            <button
-              onClick={() => onStageChange("title-abstract")}
-              aria-current={activeStage === "title-abstract" ? "step" : undefined}
-              className={cn("group flex min-h-12 items-center gap-3 border-b-2 px-2 py-2 text-left motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/30 sm:px-4 motion-reduce:transition-none", activeStage === "title-abstract" ? "border-primary text-primary-hover" : "border-transparent text-text-secondary hover:text-text-primary")}
-            >
-              <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold", activeStage === "title-abstract" ? "border-primary text-primary-hover" : "border-border text-text-secondary")}>1</span>
-              <span className="whitespace-nowrap"><span className="block text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Step 1</span><span className="text-sm font-medium">Title &amp; Abstract</span></span>
-            </button>
-            <FiChevronRight aria-hidden="true" className="mx-1 shrink-0 text-text-secondary sm:mx-3" />
-            <button
-              onClick={() => onStageChange("full-text")}
-              aria-current={activeStage === "full-text" ? "step" : undefined}
-              className={cn("group flex min-h-12 items-center gap-3 border-b-2 px-2 py-2 text-left motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/30 sm:px-4 motion-reduce:transition-none", activeStage === "full-text" ? "border-primary text-primary-hover" : "border-transparent text-text-secondary hover:text-text-primary")}
-            >
-              <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold", activeStage === "full-text" ? "border-primary text-primary-hover" : "border-border text-text-secondary")}>2</span>
-              <span className="whitespace-nowrap"><span className="block text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Step 2</span><span className="text-sm font-medium">Full Text</span></span>
-            </button>
-          </div>
-          <button aria-pressed={filters.status === "included"} onClick={() => onStatusChange(filters.status === "included" ? "all" : "included")} className={cn("min-h-11 whitespace-nowrap rounded-lg border px-4 py-2.5 text-sm font-medium motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 motion-reduce:transition-none", filters.status === "included" ? "border-success/40 bg-success/10 text-success" : "border-border text-text-secondary hover:border-success/40 hover:text-success")}>{activeStage === "title-abstract" ? "Review Passed Papers" : "Review Included"}</button>
-        </nav>
       </header>
 
-          <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-10">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div><p className="text-sm text-text-secondary">{subtitle}</p><p className="mt-1 text-xs text-text-secondary">{processName} · {papersError ? "Papers unavailable" : `${pagination.totalCount.toLocaleString()} papers`}</p></div>
-          <Button variant="outline" size="md" onClick={onBack}>Project workspace</Button>
-        </div>
+      <div className="mx-auto max-w-[1600px] px-6 pb-8 pt-5 lg:px-10">
 
         <section className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6" aria-label="Screening statistics">
           {metrics.map((metric) => <div key={metric.label} className="rounded-xl border border-border bg-surface-white px-4 py-3.5"><div className="flex items-center gap-2"><span aria-hidden="true" className={cn("h-1.5 w-1.5 rounded-full", metric.dot)} /><span className="text-[13px] font-medium text-text-secondary">{metric.label}</span></div><div className={cn("mt-3 text-[26px] font-semibold leading-none tracking-tight tabular-nums", metric.tone)}>{metric.value}</div></div>)}

@@ -26,9 +26,6 @@ export default function LeaderStudySelectionListPage() {
   };
 
   return <StudySelectionPaperList
-    title="Title & Abstract Screening"
-    subtitle="Review screening progress, open a paper, or manage reviewer assignments."
-    processName={processId || "Screening Process"}
     projectName={project?.title}
     activeStage="title-abstract"
     papers={ws.papers}
